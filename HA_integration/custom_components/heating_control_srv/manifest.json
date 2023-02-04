@@ -1,0 +1,11 @@
+{
+  "domain": "heating_control_srv",
+  "name": "Heating Control Server",
+  "documentation": "",
+  "dependencies": [],
+  "codeowners": ["@celariss"],
+  "requirements": [],
+  "iot_class": "local_polling",
+  "version": "0.1.0",
+  "loggers": ["heating_ctrl"]
+}

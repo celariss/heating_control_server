@@ -1,0 +1,6 @@
+__pycache__
+configuration.yaml
+heating_ctrl_default_configuration.yaml
+heating_ctrl_configuration.yaml
+*.log
+heating_ctrl_secrets.yaml

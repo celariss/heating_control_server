@@ -1,0 +1,16 @@
+
+- alias: mqtt_command_climate
+  mode: parallel
+  trigger:
+    - platform: mqtt
+      topic: 'homeassistant/climate/+/new_setpoint'
+  #condition:
+  #  condition: template
+  #  value_template:  "{{ trigger.topic.split('/')[3] == 'new_setpoint' }}"
+  action:
+  - service: climate.set_temperature
+    target:
+      entity_id: climate.{{ trigger.topic.split('/')[2] }}
+    data:
+      temperature: "{{trigger.payload}}"
+      hvac_mode: heat

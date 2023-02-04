@@ -1,0 +1,12 @@
+#########################################################################################
+#     AUTO PUBLISH ANY CLIMATE ENTITY TO MQTT BROKER 
+#########################################################################################
+mqtt_statestream:
+  base_topic: homeassistant
+  publish_attributes: true
+  publish_timestamps: false
+  include:
+    domains:
+      - climate
+    entity_globs:
+      - climate.*

@@ -1,0 +1,107 @@
+protocols:
+  mqtt:
+  - name:   "mqtt_ha"
+    user:   "mqtt"          #<-- put your mqtt user name here
+    pwd:    "mypasswd"      #<-- put your mqtt password here
+    broker: "192.168.0.12"  #<-- put your HA instance hostname or IP address here
+    port:   8884            #<-- put your (websocket) mqtt secure port here
+    ssl:    true
+    clean_session: true
+    on_ha_status_topic: homeassistant/status
+
+devices:
+  - "Room #1":   # Name of the thermostat, as shown in the client app (it may contain any character, including spaces and accents)
+      protocol:
+        name: 'mqtt_ha' # Do not change (name of the protocol declared in "protocols" section)
+        params:
+          # If you are using Home Assistant :
+          # -> In the following MQTT topics, replace 'climate_room_1' by the entity name of the thermostat in HA
+          on_current_temp_topic: homeassistant/climate/climate_room_1/current_temperature
+          on_setpoint_topic: homeassistant/climate/climate_room_1/temperature
+          on_state_topic: homeassistant/climate/climate_room_1/state
+          set_setpoint_topic: homeassistant/climate/climate_room_1/new_setpoint
+  - "Room #2":
+      ...
+
+# The following section is the interface definition between the server and the client app
+# DO NOT CHANGE
+remote_control:
+  - name: flutter
+    protocol:
+      name: mqtt_ha
+      params:
+        receive_active_schedule_topic: heatingcontrol/command/set_active_schedule # payload (json): {"schedule_name":str}
+        receive_delete_schedule_topic: heatingcontrol/command/delete_schedule # payload (json): {"schedule_name":str}
+        receive_schedule_name_topic: heatingcontrol/command/set_schedule_name # payload (json): {"old_name":str, "new_name":str}
+        receive_schedule_topic: heatingcontrol/command/set_schedule # payload (json): schedule (see schedule format later in this file)
+        receive_schedules_order: heatingcontrol/command/set_schedules_order # payload (json): List[str], i.e. : ["schedule_name1", "schedule_name2", ...]
+        receive_setpoint_topic: heatingcontrol/command/set_setpoint # payload (json): {"setpoint":double}
+        receive_tempset_name_topic: heatingcontrol/command/set_tempset_name # payload (json): {"old_name":str, "new_name":str, "schedule_name":str}
+        receive_tempsets_topic: heatingcontrol/command/set_tempsets # payload (json): {"temperature_sets":dict, "schedule_name":str}
+        send_command_response_topic: heatingcontrol/command/on_response # payload (json): {"status":["success","failure"], "error_code":int, "generic_desc":str}
+        send_current_temp_topic: heatingcontrol/devices/$(devname)/on_current_temp # payload: double value
+        send_devices_topic: heatingcontrol/config/on_devices # payload (json): list[device], i.e. : [{"name":"device1"}, {"name":"device2"}, ...]
+        send_scheduler_topic: heatingcontrol/config/on_scheduler # payload (json): scheduler (see scheduler format later in this file)
+        send_setpoint_topic: heatingcontrol/devices/$(devname)/on_setpoint # payload: double value
+        send_state_topic: heatingcontrol/devices/$(devname)/on_state # payload: false|true
+
+settings:
+  message_repeater:
+    repeat_delay_sec: 120
+  scheduler:
+    init_delay_sec: 20
+
+scheduler:
+  # alias of the current active schedule
+  # note : may be set to null if no active schedule
+  active_schedule: "Default"
+
+  # (OPTIONAL) global temperature sets
+  temperature_sets:
+  - alias: "Night"
+    # (OPTIONAL) alias to a temperature_set to inherit values from
+    inherits: 'other'
+    devices:
+    - device_name: "Room #1"
+      setpoint: 15.0
+    - device_name: "Room #2"
+      setpoint: 16.0
+  - alias: "Day"
+    devices:
+    - device_name: "Room #1"
+      setpoint: 19.0
+    - device_name: "Room #2"
+      setpoint: 20.0
+  
+  # Each schedule is composed of sub-schedules, or schedule items
+  # Each schedule item defines timeslots with setpoints for a group of devices.
+  schedules:
+  - alias: "Default"
+    # (OPTIONAL) local temperature sets
+    temperature_sets:
+      ... # same format than global temperature sets
+    schedule_items:
+      # list of devices that take part of this schedule
+    - devices: ["Room #1", "Room #2"]
+      # each time_slots_set define time slots and dates
+      timeslots_sets:
+        # list of dates that may be :
+        #  - any week day in ['1', ..., '7']
+        #    with 1=Monday, 2=Tuesday, ..., 7=Sunday
+        # TBD : add any date in calendar (including date ranges et repeat parameter)
+      - dates: ['1','2','3','4','5']
+        # time slots for this schedule.
+        # note : the first slot begins at 0:00 (start_time is ignored).
+        #        the last slot implicitly ends at midnight.
+        time_slots:
+          # timestamp in ISO 8601 format
+        - start_time: '00:00:00'
+          # alias of the temperature set.
+          # note : the order of search is local sets first then global sets
+          temperature_set: "Night"
+        - start_time: '06:00:00'
+          temperature_set: "Day"
+        - start_time: '21:00:00'
+          temperature_set: "Night"
+      - dates: ['6','7']
+        ... # and so on !
