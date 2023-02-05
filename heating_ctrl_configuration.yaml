@@ -1,18 +1,17 @@
-# This is a minimal configuration file that allows the server to start
+devices: []
 protocols:
   mqtt:
-  - name:   "mqtt_ha"
-    user:   "mqtt"
-    pwd:    "mypassord"
-    broker: "myha.duckdns.org"
-    port:   8884
-    ssl:    true
+  - broker: myha.duckdns.org
     clean_session: true
-
+    name: mqtt_ha
+    port: 8884
+    pwd: mypassord
+    ssl: true
+    user: mqtt
 remote_control:
 - name: flutter
   protocol:
-    name: 'mqtt_ha'
+    name: mqtt_ha
     params:
       receive_active_schedule_topic: heatingcontrol/command/set_active_schedule
       receive_delete_schedule_topic: heatingcontrol/command/delete_schedule
@@ -28,9 +27,11 @@ remote_control:
       send_scheduler_topic: heatingcontrol/config/on_scheduler
       send_setpoint_topic: heatingcontrol/devices/$(devname)/on_setpoint
       send_state_topic: heatingcontrol/devices/$(devname)/on_state
-
 scheduler:
   active_schedule: null
-  schedules:
-
-devices:
+  schedules: []
+settings:
+  message_repeater:
+    repeat_delay_sec: 120
+  scheduler:
+    init_delay_sec: 20

@@ -45,19 +45,23 @@ class Configuration:
             #self.configdata = yaml.safe_dump(config_file, allow_unicode=True)
             self.logger.debug('configuration file content : '+str(self.configdata))
 
+        save:bool = False
         if self.__set_settings_default_values():
-            self.save()
+            save = True
         self.settings = self.configdata['settings']
         
         if self.__verify_config():
             self.logger.fatal("Bad configuration")
             sys.exit(1)
 
+        if save:
+            self.save()
+
     def save(self):
         self.logger.info("Saving configuration file '"+self.config_filename+"'")
         # Before saving, we must convert back all dates in scheduler config
         configdata = copy.deepcopy(self.configdata)
-        schedules = configdata['scheduler']['schedules']
+        schedules = self.get_schedules()
         for schedule in schedules:
             Configuration.__convert_schedule_dates_to_string(schedule)
         with open(self.config_filename, 'w', encoding="utf-8") as config_file:
@@ -72,7 +76,7 @@ class Configuration:
 
     def get_scheduler_init_delai(self) -> int:
         return self.settings['scheduler']['init_delay_sec']
-        
+    
     def get_protocols(self, type=None):
         if 'protocols' in self.configdata:
             return self.configdata['protocols']
@@ -278,8 +282,10 @@ class Configuration:
 
     # @return None if the whole configuration is good to go, or ConfigError if any error
     def __verify_config(self) -> CfgError:
-        cfgErr = self.__check_mandatories(self.configdata, ['protocols', 'remote_control', 'scheduler', 'devices'], '/')
+        cfgErr = self.__check_mandatories(self.configdata, ['protocols', 'remote_control', 'scheduler', ('devices',True)], '/')
         if cfgErr: return cfgErr
+        if not self.configdata['devices']:
+            self.configdata['devices'] = []
         cfgErr = self.__verify_remote_control_config()
         if cfgErr: return cfgErr
         cfgErr = self.__verify_scheduler_config()
@@ -301,8 +307,10 @@ class Configuration:
     # @return None if the 'scheduler' root configuration node is good to go, or ConfigError if any error
     def __verify_scheduler_config(self) -> CfgError:
         scheduler_data = self.configdata['scheduler']
-        cfgErr = self.__check_mandatories(scheduler_data, [('active_schedule',True), 'schedules'], '/scheduler')
+        cfgErr = self.__check_mandatories(scheduler_data, [('active_schedule',True), ('schedules', True)], '/scheduler')
         if cfgErr: return cfgErr
+        if not scheduler_data['schedules']:
+            scheduler_data['schedules'] = []
 
         active_schedule_name = scheduler_data['active_schedule']
         active_schedule = self.get_schedule(active_schedule_name)
