@@ -4,7 +4,20 @@ from .device_interface_callbacks import DeviceInterfaceCallbacks
 import device
 
 class DeviceInterfaceBase:
-    def __init__(self, callbacks:DeviceInterfaceCallbacks):
+    def __init__(self, devices: dict[str,device.Device], auto_discovery: list[dict], callbacks:DeviceInterfaceCallbacks):
+        """The constructor must check :
+        - the protocol_params of each device 
+        - auto_discovery content
+        It must raise CfgError if necessary
+
+        :param devices: all devices that are related to the protocol handled by this instance
+        :type devices: dict[str,device.Device]
+        :param auto_discovery: auto_discovery parameters that are related to the protocol handled by this instance
+        :type auto_discovery: list[dict]
+        :param callbacks: Callback to the controller
+        :type callbacks: DeviceInterfaceCallbacks
+        :raises CfgError: in case of error in auto_discovery or device.protocol_params format
+        """
         pass
     
     def on_client_connect(self, client_name: str):
@@ -17,6 +30,9 @@ class DeviceInterfaceBase:
         pass
 
     def on_server_alive(self, client_name: str, is_alive:bool):
+        pass
+
+    def on_devices(self, devices:dict[str,device.Device]):
         pass
 
     # Ask for a device parameter change

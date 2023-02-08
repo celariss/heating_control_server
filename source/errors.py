@@ -4,41 +4,49 @@ from enum import Enum
 import logging
 
 class ECfgError(Enum):
+    # The configuration file is missing
+    # params : {'filename':str}
+    MISSING_FILE = 1
+
+    # The configuration file content format is invalid
+    # params : {'error':str}
+    BAD_FILE_CONTENT = 2
+
     # One or more mandatory children nodes are missing
     # params : {'missing_children':list[str]}
-    MISSING_NODES  = 1
+    MISSING_NODES  = 3
     
     # The node's value is a reference to a missing node
     # params : {'reference':str}
-    BAD_REFERENCE  = 2
+    BAD_REFERENCE  = 4
 
     # Bad type, a list was expected for this node's value
     # params : {}
-    EXPECTED_LIST  = 3
+    EXPECTED_LIST  = 5
     
     # A unique key identifier has been used twice 
     # params : {'key':str}
-    DUPLICATE_UNIQUE_KEY  = 4
+    DUPLICATE_UNIQUE_KEY  = 6
     
     # Expected one or more children for list node
     # params : {'child_node':str}
-    EMPTY_LIST = 5
+    EMPTY_LIST = 7
     
     # The node's value is not allowed
     # params : {'value':str}
-    BAD_VALUE = 6
+    BAD_VALUE = 8
     
     # Circular references
     # params : {'aliases':list}
-    CIRCULAR_REF = 7
+    CIRCULAR_REF = 9
     
     # Missing value in list
     # params : {'value':str}
-    MISSING_VALUE = 8
+    MISSING_VALUE = 10
     
     
 
-class CfgError:
+class CfgError(Exception):
     def __init__(self, id:ECfgError, node_path:str, node_key:str=None, params:dict={}, logger:logging.Logger = None):
         if not id in ECfgError:
             raise ValueError("Error with id <"+str(id)+"> is not declared")
@@ -49,7 +57,9 @@ class CfgError:
         self.node_path:str = node_path
         self.generic_desc:str = ''
         nodes_desc = self.node_path+("['"+self.node_key+"']" if self.node_key else "")
-        if self.id==ECfgError.MISSING_NODES: self.generic_desc = "Missing mandatory node(s) in <"+nodes_desc+"> : "+str(self.params['missing_children'])
+        if self.id==ECfgError.MISSING_FILE: self.generic_desc = "Configuration file is missing : "+str(self.params['filename'])
+        elif self.id==ECfgError.BAD_FILE_CONTENT: self.generic_desc = "Configuration file content is invalid : "+str(self.params['error'])
+        elif self.id==ECfgError.MISSING_NODES: self.generic_desc = "Missing mandatory node(s) in <"+nodes_desc+"> : "+str(self.params['missing_children'])
         elif self.id==ECfgError.BAD_REFERENCE: self.generic_desc = "Reference to a node in <"+nodes_desc+"> that does not exist : "+str(self.params['reference'])
         elif self.id==ECfgError.EXPECTED_LIST: self.generic_desc = "A list was expected for node <"+nodes_desc+">"
         elif self.id==ECfgError.DUPLICATE_UNIQUE_KEY: self.generic_desc = "The unique key '"+str(self.params['key'])+"' in node '"+nodes_desc+"' was already declared"

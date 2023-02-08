@@ -1,4 +1,15 @@
 # This is a minimal configuration file that allows the server to start
+
+settings:
+  auto_discovery:
+  - protocol_name: mqtt_ha
+    devices_base_topic: homeassistant/climate/
+    friendly_name_subtopic: friendly_name
+    on_current_temp_subtopic: current_temperature
+    on_setpoint_subtopic: temperature
+    on_state_subtopic: state
+    set_setpoint_subtopic: new_setpoint
+
 protocols:
   mqtt:
   - name:   "mqtt_ha"
@@ -23,11 +34,11 @@ remote_control:
       receive_tempset_name_topic: heatingcontrol/command/set_tempset_name
       receive_tempsets_topic: heatingcontrol/command/set_tempsets
       send_command_response_topic: heatingcontrol/command/on_response
-      send_current_temp_topic: heatingcontrol/devices/$(devname)/on_current_temp
+      send_current_temp_topic: heatingcontrol/devices/$(mqttid)/on_current_temp
       send_devices_topic: heatingcontrol/config/on_devices
       send_scheduler_topic: heatingcontrol/config/on_scheduler
-      send_setpoint_topic: heatingcontrol/devices/$(devname)/on_setpoint
-      send_state_topic: heatingcontrol/devices/$(devname)/on_state
+      send_setpoint_topic: heatingcontrol/devices/$(mqttid)/on_setpoint
+      send_state_topic: heatingcontrol/devices/$(mqttid)/on_state
 
 scheduler:
   active_schedule: null

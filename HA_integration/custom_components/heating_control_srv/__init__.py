@@ -22,6 +22,7 @@ import sys
 DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(DIR))
 from heating_control_server.controller import Controller
+from heating_control_server.errors import CfgError
 
    
 
@@ -40,6 +41,12 @@ def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         hass.data[DOMAIN][DATA_CONFIG] = config[DOMAIN]
         _LOGGER.info('starting Controller')
         heating_control_server = Controller('/config/', 'heating_ctrl_')
+        try:
+            heating_control_server.start()
+        except CfgError as exc:
+            _LOGGER.error("Could not start heating server : "+exc.generic_desc,DOMAIN)
+            heating_control_server.stop()
+            heating_control_server = None
         hass.data[DOMAIN][DATA_SERVER] = heating_control_server
 
     # Return boolean to indicate that initialization was successfull.
@@ -61,6 +68,12 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: config_entries.Co
     
     _LOGGER.info('starting Controller')
     heating_control_server = Controller('/config/', 'heating_ctrl_')
+    try:
+        heating_control_server.start()
+    except CfgError as exc:
+        _LOGGER.error("Could not start heating server : "+exc.generic_desc,DOMAIN)
+        heating_control_server.stop()
+        heating_control_server = None
     hass.data[DOMAIN][DATA_SERVER] = heating_control_server
     
     return True
@@ -71,7 +84,8 @@ async def async_unload_entry(hass, entry):
     
     # called when an integration instance is removed from HA
     _LOGGER.info('stopping Controller')
-    hass.data[DOMAIN][DATA_SERVER].stop()
+    if hass.data[DOMAIN][DATA_SERVER]:
+        hass.data[DOMAIN][DATA_SERVER].stop()
 
     # Remove config entry from domain.
     hass.data[DOMAIN].pop(entry.entry_id)

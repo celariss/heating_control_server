@@ -1,0 +1,5 @@
+V0.9.1 (08/02/2023) :
+	- Added auto discover feature (to automatically add exposed devices into configuration file)
+	  => Configuration file format has changed ("devices" and "settings" sections)
+	  => Update of client app is needed to maintain compatibility
+	- Improvements in configuration file error detection (missing file, parsing error)

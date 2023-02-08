@@ -10,7 +10,7 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
 
     # Implementation of ProtocolHandlerBase class
 
-    def __init__(self, clients_config: dict, callbacks: ProtocolHandlerCallbacks):
+    def __init__(self, clients_config: list, callbacks: ProtocolHandlerCallbacks):
         self.logger: logging.Logger = logging.getLogger('hcs.mqtt')
         self.callbacks: ProtocolHandlerCallbacks = callbacks
         self.is_connected: bool = False
@@ -57,6 +57,7 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
     # protocol_params may be either:
     #    { 'type': 'publish', 'topic': str_value, 'payload': str_value, 'qos': int, 'retain': bool }
     # or { 'type': 'subscribe', 'topic': str_value, 'qos': int }
+    # or { 'type': 'unsubscribe', 'topic': str_value }
     # Note: 'retain' and 'qos' are optional
     def send_message(self, client_name: str, protocol_params:dict):
         if client_name in self.mqttclients:
@@ -72,6 +73,8 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
                     client.publish(protocol_params['payload'], protocol_params['topic'], retain, qos=qos)
                 elif protocol_params['type']=='subscribe':
                     self.__subscribe(client, client_name, protocol_params['topic'], qos)
+                elif protocol_params['type']=='unsubscribe':
+                    self.__unsubscribe(client, client_name, protocol_params['topic'])
             else:
                 self.logger.debug("Interface '"+client_name+"' NOT CONNECTED : publish command ignored ('"+str(protocol_params['payload'])+"' on topic '"+protocol_params['topic']+"')")
     
@@ -81,6 +84,10 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
     def __subscribe(self, client:MQTTClient, client_name:str, topic:str, qos:int):
         self.logger.debug("Interface '"+client_name+"' : Subscribing to '"+topic+"'")
         client.subscribe(topic, qos=qos)
+
+    def __unsubscribe(self, client:MQTTClient, client_name:str, topic:str):
+        self.logger.debug("Interface '"+client_name+"' : Unsubscribing to '"+topic+"'")
+        client.unsubscribe(topic)
 
     def __get_mqttclient_name(self, mqtt_client) -> str:
         for item in self.mqttclients.items():

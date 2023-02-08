@@ -84,6 +84,9 @@ class MQTTClient:
     def subscribe(self, topic, qos=1):
         self.paho_client.subscribe(topic, qos)
 
+    def unsubscribe(self, topic, qos=1):
+        self.paho_client.unsubscribe(topic)
+
     def publish(self, data, topic:str, retain:bool=False, qos=1) -> bool:
         properties:Properties=Properties(PacketTypes.PUBLISH)
         properties.MessageExpiryInterval=30 # in seconds

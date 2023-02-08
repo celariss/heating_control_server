@@ -1,7 +1,7 @@
 from .protocol_handler_callbacks import ProtocolHandlerCallbacks
 
 class ProtocolHandlerBase:
-    def __init__(self, clients_config: dict, callbacks: ProtocolHandlerCallbacks):
+    def __init__(self, clients_config: list, callbacks: ProtocolHandlerCallbacks):
         pass
 
     # return the string identifying this type of protocol in configuration file
@@ -19,5 +19,5 @@ class ProtocolHandlerBase:
         pass
 
     # protocol_params content depends on the protocol handler implementation
-    def send_message(self, client_name: str, protocol_params):
+    def send_message(self, client_name: str, protocol_params:dict):
         pass

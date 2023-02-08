@@ -30,30 +30,40 @@ import os
 
 import common
 
-VERSION = '0.9.0'
+VERSION = '0.9.1'
 
 class Controller(
         SchedulerCallbacks,
         ProtocolHandlerCallbacks,
         DeviceInterfaceCallbacks,
         RemoteControlCallbacks):
+    
     def __init__(self, config_path:str = '.', config_files_prefix:str = ''):
-        self.config_path = config_path
-        self.config_files_prefix = config_files_prefix
-        self.__init_logging()
-        self.logger.info('Smart Heater server V'+VERSION)
-        
+        self.config_path:str = config_path
+        self.config_files_prefix:str = config_files_prefix
+        self.logger:logging.Logger = None
         self.remote_control: RemoteControl = None
         self.scheduler: Scheduler = None
-        self.configuration: Configuration = Configuration(self.config_path, self.config_files_prefix)
-        self.repeater: CommandRepeater = CommandRepeater(self.configuration.get_repeater_delay())
+        self.configuration: Configuration = None
+        self.repeater: CommandRepeater = None
+        self.protocols: Protocols = None
+        self.devices: dict[str,Device] = {}
+        self.device_interfaces: DeviceInterfaces = None
+
+    def start(self):
+        """
+            :raises CfgError: in case of any error in parameters from configuration file
+        """
+        self.__init_logging()
+        self.logger.info('Smart Heater server V'+VERSION)
+        self.configuration = Configuration(self.config_path, self.config_files_prefix)
+        self.repeater = CommandRepeater(self.configuration.get_repeater_delay())
         config_protocols = self.configuration.get_protocols()
-        self.protocols: Protocols = Protocols(config_protocols, self)
-        self.device_interfaces: DeviceInterfaces = DeviceInterfaces(self)
+        self.protocols = Protocols(config_protocols, self)
 
         # Instanciation of devices
         config_devices = self.configuration.get_devices()
-        self.devices: dict[str,Device] = {}
+        self.devices = {}
         # Create devices from config_devices and device_interface
         for devname in config_devices:
             devparams = config_devices[devname]
@@ -66,8 +76,10 @@ class Controller(
             else:
                 self.logger.error("ERROR: can not configure device '"+devname+"': protocol client '"+client_name+"' is not defined")
 
+        self.device_interfaces = DeviceInterfaces(self.devices, self.configuration.get_auto_discovery(), self)
+
         config_remote = self.configuration.get_remote_control()
-        self.remote_control = RemoteControl(config_remote, self)
+        self.remote_control = RemoteControl(config_remote, self.devices, self)
 
         self.protocols.connect()
 
@@ -171,9 +183,6 @@ class Controller(
     ################################################################################
     # Implementation of DeviceInterfaceCallbacks class
     ################################################################################
-    def get_devices(self) -> dict[str,Device]:
-        return self.devices
-
     def on_device_state(self, device:Device, available:bool):
         if device.available != available:
             self.logger.info("Device['"+device.name+"']: availability state has changed to '"+str(available)+"'")
@@ -196,10 +205,25 @@ class Controller(
         self.repeater.removeCommand("set_dev_setpoint_" + device.name)
         self.remote_control.on_device_setpoint(device.name, value)
 
+    def on_discovered_device(self, device:Device):
+        self.logger.debug("Device['"+device.name+"'] discovered !")
+        err:CfgError = self.configuration.add_device(device.name, device.protocol_client_name, device.protocol_params)
+        if not err:
+            self.devices[device.name] = device
+            # We need to notify devices consumers
+            self.device_interfaces.on_devices(self.devices)
+            self.remote_control.on_devices(self.devices)
+        else:
+            self.logger.error("Could not add invalid device")
+
     # protocol_msg_params content depends on the protocol handler implementation
-    def send_message_to_device(self, device:Device, protocol_msg_params):
+    def send_message_to_device(self, device:Device, protocol_msg_params:dict):
         self.logger.debug("Sending msg to '"+device.name+"': "+str(protocol_msg_params))
         self.protocols.send_message(device.protocol_type, device.protocol_client_name, protocol_msg_params)
+
+    def send_message_to_client(self, protocol_type:str, client_name:str, protocol_msg_params:dict):
+        self.logger.debug("Sending msg to '"+client_name+"': "+str(protocol_msg_params))
+        self.protocols.send_message(protocol_type, client_name, protocol_msg_params)
     ################################################################################
     # END OF DeviceInterfaceCallbacks implementation
     ################################################################################
@@ -210,7 +234,7 @@ class Controller(
     def get_protocol_type_from_name(self, client_name: str) -> str:
         return self.protocols.get_protocol_type_from_name(client_name)
 
-    def get_client_by_name(self,client_name)-> MQTTClient:
+    def get_client_by_name(self,client_name)-> object:
         return self.protocols.get_client_by_name(client_name)
 
     def get_scheduler_config(self) -> dict:

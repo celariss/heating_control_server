@@ -10,7 +10,7 @@ from .mqttclient import MQTTClient
 class Protocols:
     def __init__(self, config_protocols, callbacks: ProtocolHandlerCallbacks):
         self.config_protocols: dict = config_protocols
-        self.logger: logging.Logger = logging.getLogger('hcs.deviceinterfaces')
+        self.logger: logging.Logger = logging.getLogger('hcs.protocols')
         self.protocol_handlers: dict = {}
         # Only MQTT protocol is known so far
         MQTT = MQTTProtocolHandler.get_config_type()
@@ -21,7 +21,7 @@ class Protocols:
         return self.protocol_handlers.keys()
 
     # Find, in all protocol handlers, the instance of the connexion client from given name
-    def get_client_by_name(self, client_name: str) -> MQTTClient:
+    def get_client_by_name(self, client_name: str) -> object:
         for handler in self.protocol_handlers.values():
             client = handler.get_client_from_name(client_name)
             if client:
@@ -56,7 +56,7 @@ class Protocols:
         return True
 
     # protocol_params content depends on the protocol handler implementation
-    def send_message(self, protocol_type: str, client_name: str, protocol_msg_params):
+    def send_message(self, protocol_type: str, client_name: str, protocol_msg_params:dict):
         handler: ProtocolHandlerBase = self.protocol_handlers.get(protocol_type, None)
         if handler:
             handler.send_message(client_name, protocol_msg_params)

@@ -13,9 +13,6 @@ class RemoteControlCallbacks:
     def get_scheduler_config(self) -> dict:
         pass
 
-    def get_devices(self) -> dict[str,Device]:
-        pass
-
     def set_schedule(self, remote_name:str, schedule:dict):
         pass
 

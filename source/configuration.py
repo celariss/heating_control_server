@@ -7,6 +7,7 @@ import sys, os
 import copy
 
 from common import *
+from yaml.parser import ParserError
 from yaml_tags import YamlTagsResolver
 from errors import *
 
@@ -24,6 +25,9 @@ class Configuration:
     # save/load methods
     ########################################################################################
     def load(self):
+        """
+        :raises CfgError: in case of any error in configuration file
+        """
         # We first choose the configuration file to load :
         # if self.config_filename does not exist or is old, we load the default configuration file
         default_conf_file_date = 0.
@@ -36,12 +40,14 @@ class Configuration:
         if conf_file_date>default_conf_file_date:
             filename = self.config_filename
         if not os.path.exists(filename):
-            self.logger.fatal("Missing configuration file : "+str(filename))
-            sys.exit(1)
+            raise CfgError(ECfgError.MISSING_FILE, '', None, {'filename':filename}, self.logger)
 
         self.logger.info("Opening configuration file '"+filename+"'")
         with open(filename, 'r', encoding='utf-8') as config_file:
-            self.configdata = yaml.load(config_file,Loader=YamlTagsResolver.create_yaml_loader(self.secrets_filename))
+            try:
+                self.configdata = yaml.load(config_file,Loader=YamlTagsResolver.create_yaml_loader(self.secrets_filename))
+            except ParserError as exc:
+                raise CfgError(ECfgError.BAD_FILE_CONTENT, '', None, {'error':exc.problem}, self.logger)
             #self.configdata = yaml.safe_dump(config_file, allow_unicode=True)
             self.logger.debug('configuration file content : '+str(self.configdata))
 
@@ -50,9 +56,8 @@ class Configuration:
             save = True
         self.settings = self.configdata['settings']
         
-        if self.__verify_config():
-            self.logger.fatal("Bad configuration")
-            sys.exit(1)
+        err:CfgError = self.__verify_config()
+        if err: raise err
 
         if save:
             self.save()
@@ -61,7 +66,7 @@ class Configuration:
         self.logger.info("Saving configuration file '"+self.config_filename+"'")
         # Before saving, we must convert back all dates in scheduler config
         configdata = copy.deepcopy(self.configdata)
-        schedules = self.get_schedules()
+        schedules = configdata['scheduler']['schedules']
         for schedule in schedules:
             Configuration.__convert_schedule_dates_to_string(schedule)
         with open(self.config_filename, 'w', encoding="utf-8") as config_file:
@@ -71,6 +76,11 @@ class Configuration:
     ########################################################################################
     # Get methods
     ########################################################################################
+    def get_auto_discovery(self) -> list[dict]:
+        if 'auto_discovery' in self.settings:
+            return self.settings['auto_discovery']
+        return []
+
     def get_repeater_delay(self) -> int:
         return self.settings['message_repeater']['repeat_delay_sec']
 
@@ -138,6 +148,13 @@ class Configuration:
     ########################################################################################
     # Set/Change/Delete methods
     ########################################################################################
+    def add_device(self, device_name:str, client_name:str, protocol_params:dict) -> CfgError:
+        devices:dict = self.get_devices()
+        if device_name in devices:
+            return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/devices', None, {'key':device_name}, self.logger)
+        self.configdata['devices'].append({device_name: {'protocol':{'name':client_name, 'params':protocol_params}}})
+        self.save()
+        return None
 
     def set_schedule(self, schedule:dict) -> CfgError:
         cfgErr = self.__check_mandatories(schedule, ['alias', 'schedule_items'], '/scheduler/schedules', Configuration.get(schedule, 'alias', None))
@@ -256,33 +273,17 @@ class Configuration:
     ########################################################################################
     # Configuration verification methods
     ########################################################################################
-    
-    ### each key in list can be either :
-    ### - a tuple (key:str, noneAllowed:bool) : the key must exists, noneAllowed indicates if None is allowed has given key value
-    ### - a mandatory key name : the key must exists and have a actual value (not None)
-    def __get_missing_mandatories(dico:dict, keys_list:list) -> list:
-        result = []
-        for item in keys_list:
-            if isinstance(item,tuple):
-                key = item[0]
-                noneAllowed = item[1]
-            else:
-                key = item
-                noneAllowed = False
-            if (not key in dico) or (noneAllowed==False and dico[key]==None):
-                result.append(key)
-        return result
         
     # @return None if success, or a CfgError in case of missing mandatory nodes
     def __check_mandatories(self, dico:dict, keys_list:list, parent_node:str, node_key:str=None) -> CfgError:
-        missing:list = Configuration.__get_missing_mandatories(dico, keys_list)
+        missing:list = get_missing_mandatories(dico, keys_list)
         if len(missing)>0:
             return CfgError(ECfgError.MISSING_NODES, parent_node, node_key, {'missing_children':missing}, self.logger)
         return None
 
     # @return None if the whole configuration is good to go, or ConfigError if any error
     def __verify_config(self) -> CfgError:
-        cfgErr = self.__check_mandatories(self.configdata, ['protocols', 'remote_control', 'scheduler', ('devices',True)], '/')
+        cfgErr = self.__check_mandatories(self.configdata, ['settings', 'protocols', 'remote_control', 'scheduler', ('devices',True)], '/')
         if cfgErr: return cfgErr
         if not self.configdata['devices']:
             self.configdata['devices'] = []
@@ -290,6 +291,12 @@ class Configuration:
         if cfgErr: return cfgErr
         cfgErr = self.__verify_scheduler_config()
         if cfgErr: return cfgErr
+
+        settings = self.configdata['settings']
+        if 'auto_discovery' in settings:
+            cfgErr = self.__check_mandatories(settings, ['auto_discovery'], '/settings')
+            if cfgErr: return cfgErr
+
         return None
 
     # @return None if the 'remote_control' root configuration node is good to go, or ConfigError if any error

@@ -1,5 +1,6 @@
 __author__      = "Jérôme Cuq"
 
+from device import Device
 from .remote_control_callbacks import RemoteControlCallbacks
 from .mqtt_remote_client import MQTTRemoteClient
 from .remote_client_base import RemoteClientBase
@@ -9,7 +10,16 @@ import logging
 
 
 class RemoteControl:
-    def __init__(self, config_remote_control, callbacks:RemoteControlCallbacks):
+    def __init__(self, config_remote_control, devices: dict[str,Device], callbacks:RemoteControlCallbacks):
+        """
+        :param config_remote_control: _description_
+        :type config_remote_control: _type_
+        :param devices: _description_
+        :type devices: dict[str,Device]
+        :param callbacks: _description_
+        :type callbacks: RemoteControlCallbacks
+        :raises CfgError: in case of error in protocol settings
+        """
         self.logger: logging.Logger = logging.getLogger('hcs.remotecontrol')
         self.config_remote_control: dict = config_remote_control
         self.callbacks = callbacks
@@ -20,7 +30,7 @@ class RemoteControl:
             protocol_type = callbacks.get_protocol_type_from_name(client_name)
             # Only MQTT protocol is known so far
             if protocol_type == MQTTProtocolHandler.get_config_type():
-                remote = MQTTRemoteClient(remote_name, config_remote, callbacks.get_client_by_name(client_name), callbacks)
+                remote = MQTTRemoteClient(remote_name, config_remote, callbacks.get_client_by_name(client_name), devices, callbacks)
             else:
                 self.logger.error("Invalid configuration for remote_control '"+protocol_type+"': unknown protocol type '"+protocol_type+"'")
                 return
@@ -55,20 +65,24 @@ class RemoteControl:
             remote.on_server_alive(is_alive)
 
     def on_device_state(self, device_name:str, available:bool):
-        for name in self.remotes:
-            self.remotes[name].on_device_state(device_name, available)
+        for remote in self.remotes.values():
+            remote.on_device_state(device_name, available)
 
     def on_device_current_temperature(self, device_name:str, value:float):
-        for name in self.remotes:
-            self.remotes[name].on_device_current_temperature(device_name, value)
+        for remote in self.remotes.values():
+            remote.on_device_current_temperature(device_name, value)
 
     def on_device_setpoint(self, device_name, value:float):
-        for name in self.remotes:
-            self.remotes[name].on_device_setpoint(device_name, value)
+        for remote in self.remotes.values():
+            remote.on_device_setpoint(device_name, value)
 
     def on_scheduler(self, scheduler_config:dict):
-        for name in self.remotes:
-            self.remotes[name].on_scheduler(scheduler_config)
+        for remote in self.remotes.values():
+            remote.on_scheduler(scheduler_config)
+
+    def on_devices(self, devices:dict[str,Device]):
+        for remote in self.remotes.values():
+            remote.on_devices(devices)
 
     def on_server_response(self, remote_name:str, status:str, error:dict=None):
         self.logger.info("Sending server response to remote '"+remote_name+"' : status="+status+(", error="+str(error) if error else ""));

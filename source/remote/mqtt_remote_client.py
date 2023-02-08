@@ -1,5 +1,6 @@
 __author__      = "Jérôme Cuq"
 
+from errors import *
 from .remote_control_callbacks import RemoteControlCallbacks
 from .remote_client_base import RemoteClientBase
 from protocols.mqttclient import MQTTClient
@@ -11,19 +12,24 @@ import logging
 import json
 import common
 
-DEVNAME_VAR     = '$(devname)'
-DEVNAME_VAR_ESC =  r'\$\(devname\)'
+MQTTID_VAR     = '$(mqttid)'
+MQTTID_VAR_ESC =  r'\$\(mqttid\)'
 
 class MQTTRemoteClient(RemoteClientBase):
-    def __init__(self, remote_name, config_remote_client, client:MQTTClient, callbacks:RemoteControlCallbacks):
+    def __init__(self, remote_name, config_remote_client, client:object, devices: dict[str,Device], callbacks:RemoteControlCallbacks):
         self.logger = logging.getLogger('hcs.mqttremoteclient')
         self.config_remote_client = config_remote_client
+        self.devices: dict[str,Device] = devices
         self.callbacks = callbacks
         self.remote_name = remote_name
         self.config_protocol = config_remote_client['protocol']
-        self.re:re.Pattern = re.compile('[\\w_@.-/]*'+DEVNAME_VAR_ESC+'[\\w_@.-/]*')
-        self.client = client
         self.client_name = self.config_protocol['name']
+        if not isinstance(client, MQTTClient):
+            self.logger.error("Bad configuration for remote '"+self.remote_name+"': '"+self.client_name+"' is not a MQTT connexion")
+            raise CfgError(CfgError.BAD_VALUE, 'remote_control/protocol/name', None, {'value':self.client_name}, self.logger)
+        self.client:MQTTClient = client
+        self.re:re.Pattern = re.compile('[\\w_@.-/]*'+MQTTID_VAR_ESC+'[\\w_@.-/]*')
+        
 
         self.send_scheduler_topic = self.config_protocol['params']['send_scheduler_topic']
         self.send_devices_topic = self.config_protocol['params']['send_devices_topic']
@@ -50,6 +56,26 @@ class MQTTRemoteClient(RemoteClientBase):
         data_json = json.dumps(scheduler_config, default=str)
         self.client.publish(data_json, self.send_scheduler_topic, retain=True)
 
+    def on_devices(self, devices:dict[str,Device]):
+        self.devices = devices
+        self.__publish_devices()
+
+    def __str2mqtt(string:str):
+        return string.replace('+','_').replace('#','_').replace('$','_')
+
+    def __publish_devices(self):
+        data_json = '['
+        i = 0
+        for device in self.devices.values():
+            if not 'mqttid' in device.protocol_params:
+                device.protocol_params['mqttid'] = MQTTRemoteClient.__str2mqtt(device.name)
+            if i>0: data_json = data_json + ','
+            i+=1
+            data_json = data_json + '{"name": "' + device.name + '", "mqttid": "' + device.protocol_params['mqttid'] + '"}'
+        data_json = data_json + ']'
+        self.client.publish(data_json, self.send_devices_topic, retain=True)
+        self.logger.debug(data_json)
+
     def on_client_connect(self):
         self.client.subscribe(self.receive_setpoint_topic, 1)
         self.client.subscribe(self.receive_schedule_topic, 1)
@@ -65,16 +91,7 @@ class MQTTRemoteClient(RemoteClientBase):
         self.client.publish(data_json, self.send_scheduler_topic, retain=True)
         #self.logger.debug(data_json)
         
-        devices: dict[str,Device] = self.callbacks.get_devices()
-        data_json = '['
-        i = 0
-        for device in devices.values():
-            if i>0: data_json = data_json + ','
-            i+=1
-            data_json = data_json + '{"name": "' + device.name + '"}'
-        data_json = data_json + ']'
-        self.client.publish(data_json, self.send_devices_topic, retain=True)
-        self.logger.debug(data_json)
+        self.__publish_devices()
 
     def on_client_disconnect(self):
         pass
@@ -120,15 +137,15 @@ class MQTTRemoteClient(RemoteClientBase):
                 self.logger.error(str(exc))
 
     def on_device_state(self, device_name:str, available:bool):
-        topic = self.send_state_topic.replace(DEVNAME_VAR,device_name)
+        topic = self.send_state_topic.replace(MQTTID_VAR,self.devices[device_name].protocol_params['mqttid'])
         self.client.publish(str(available).lower(), topic, retain=True, qos=1)
 
     def on_device_current_temperature(self, device_name:str, value:float):
-        topic = self.send_current_temp_topic.replace(DEVNAME_VAR,device_name)
+        topic = self.send_current_temp_topic.replace(MQTTID_VAR,self.devices[device_name].protocol_params['mqttid'])
         self.client.publish(value, topic, retain=True, qos=1)
 
     def on_device_setpoint(self, device_name:str, value:float):
-        topic = self.send_setpoint_topic.replace(DEVNAME_VAR,device_name)
+        topic = self.send_setpoint_topic.replace(MQTTID_VAR,self.devices[device_name].protocol_params['mqttid'])
         self.client.publish(value, topic, retain=True, qos=1)
 
     def on_server_response(self, status:str, error:dict=None):
