@@ -44,13 +44,25 @@ The server is able to :
 - Add auto-tests
 
 ## Installation inside Home Assistant
-This section only covers the case of server installation as a Home Assistant integration. A a consequence, the prerequisite is a running HA instance that contains a few thermostat entities.
+This section only covers the case of server installation as a Home Assistant integration. As a consequence, the prerequisite is a running HA instance that contains a few thermostat entities.
 
 #### 1- MQTT Broker
 The server needs a MQTT broker instance to connect to. To activate Mosquitto broker inside HA, do the following :
 - Install the mosquitto broker add-on from the add-ons section of HA parameters
-- Declare the user 'mqtt' in HA settings and choose his password wisely
+- Declare the user 'mqtt' (or any other!) in HA settings and choose his password wisely
 > Detailed instructions can be found online...
+
+#### 3- Installation of the add-on
+To install the server as a add-on (custom component) on your Home Assistant instance, the easier way is to use the install script. Please go to [HA_integration folder](./HA_integration/) and take a look at the README file
+
+## Standalone Installation
+TBD
+
+#### 1- Install third-party python libraries
+```sh
+pip install paho-mqtt
+pip install pyyaml
+```
 
 #### 2- Server configuration file
 The configuration file to update is located here : `./heating_ctrl_default_configuration.yaml`
@@ -70,35 +82,6 @@ You just have to update the MQTT parameters in « protocols/mqtt » section :
       port:   8884               #<-- put your (websocket) mqtt secure port here
       ssl:    true
   ```
-
-
-#### 3- Installation of the add-on
-> **Note :**
-> - `./HA_integration/configuration.yaml` contains code to make HA publish the states of all thermostats automatically to the MQTT broker
-> - `./HA_integration/automations.yaml` contains code to subscribe (on the MQTT broker) to setpoint changes coming from the heating control server
-
-You must have access to the « `config` » shared folder of your HA instance :
-1. Add the content of `./HA_integration/configuration.yaml` in HA `config/configuration.yaml`
-2. Add the content of `./HA_integration/automations.yaml` in HA `config/automations.yaml`
-3. copy `./HA_integration/custom_components/heating_control_srv` folder to HA `config/custom_components/` folder
-4. copy `./source` folder to HA `config/custom_components/heating_control_srv/` folder
-5. in HA config folder, rename `config/custom_components/heating_control_srv/source` to `config/custom_components/heating_control_srv/heating_control_server`
-6. Copy all files from `./HA_integration/custom_components/config/` folder to HA `config/` folder
-7. Add `./heating_ctrl_default_configuration.yaml` to HA `config/` folder
-8. Edit HA `config/configuration.yaml` file and add the following line :
-```yaml
-heating_control_srv :
-```
-9. Restart HA server
-
-## Standalone Installation
-TBD
-
-#### Install third-party python libraries
-```sh
-pip install paho-mqtt
-pip install pyyaml
-```
 
 ## Tech and dependencies
 This software uses a number of tech and projects to work properly:

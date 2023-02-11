@@ -9,9 +9,20 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["192.168.1.201", "1884", "mqtt", "mqtt", "homeassistant/climate/", "-p", "test"],
+            "args": [],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python : HA_integration",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "HA_integration",
+            "args": ["-p", "install.ini"],
             "console": "integratedTerminal",
             "justMyCode": true
         }
     ]
+
 }

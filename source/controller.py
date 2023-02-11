@@ -1,5 +1,7 @@
 __author__      = "Jérôme Cuq"
 
+VERSION = '0.9.2'
+
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
 from pathlib import Path
@@ -29,8 +31,6 @@ import yaml
 import os
 
 import common
-
-VERSION = '0.9.1'
 
 class Controller(
         SchedulerCallbacks,

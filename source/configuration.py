@@ -19,6 +19,7 @@ class Configuration:
         self.config_filename = os.path.join(config_path, config_files_prefix+'configuration.yaml')
         self.default_config_filename = os.path.join(config_path, config_files_prefix+'default_configuration.yaml')
         self.secrets_filename = os.path.join(config_path, config_files_prefix+'secrets.yaml')
+        self.format_version = 2
         self.load()
         
     ########################################################################################
@@ -28,6 +29,8 @@ class Configuration:
         """
         :raises CfgError: in case of any error in configuration file
         """
+
+        save:bool = False
         # We first choose the configuration file to load :
         # if self.config_filename does not exist or is old, we load the default configuration file
         default_conf_file_date = 0.
@@ -39,6 +42,10 @@ class Configuration:
         filename = self.default_config_filename
         if conf_file_date>default_conf_file_date:
             filename = self.config_filename
+        else:
+            # In case we choose the default config file, we need to write
+            # a new config file after loading process
+            save = True
         if not os.path.exists(filename):
             raise CfgError(ECfgError.MISSING_FILE, '', None, {'filename':filename}, self.logger)
 
@@ -51,7 +58,6 @@ class Configuration:
             #self.configdata = yaml.safe_dump(config_file, allow_unicode=True)
             self.logger.debug('configuration file content : '+str(self.configdata))
 
-        save:bool = False
         if self.__set_settings_default_values():
             save = True
         self.settings = self.configdata['settings']
@@ -64,6 +70,7 @@ class Configuration:
 
     def save(self):
         self.logger.info("Saving configuration file '"+self.config_filename+"'")
+        self.configdata['version'] = self.format_version
         # Before saving, we must convert back all dates in scheduler config
         configdata = copy.deepcopy(self.configdata)
         schedules = configdata['scheduler']['schedules']
@@ -314,7 +321,7 @@ class Configuration:
     # @return None if the 'scheduler' root configuration node is good to go, or ConfigError if any error
     def __verify_scheduler_config(self) -> CfgError:
         scheduler_data = self.configdata['scheduler']
-        cfgErr = self.__check_mandatories(scheduler_data, [('active_schedule',True), ('schedules', True)], '/scheduler')
+        cfgErr:CfgError = self.__check_mandatories(scheduler_data, [('active_schedule',True), ('schedules', True)], '/scheduler')
         if cfgErr: return cfgErr
         if not scheduler_data['schedules']:
             scheduler_data['schedules'] = []
@@ -347,7 +354,8 @@ class Configuration:
                 idx = idx+1
                             
             # converting start_time to datetime.time in the scheduler configuration
-            Configuration.__convert_schedule_dates_from_string(schedule)
+            cfgErr = self.__convert_schedule_dates_from_string(schedule)
+            if cfgErr: return cfgErr
         
         # Detecting circular dependencies in temperature sets
         global_temp_sets = Configuration.get_dict_values_from_path(self.configdata, ['scheduler', 'temperature_sets'])
@@ -518,13 +526,34 @@ class Configuration:
             return cfgErr
         return None
 
-    def __convert_schedule_dates_from_string(schedule):
+    def __convert_schedule_dates_from_string(self, schedule) -> CfgError:
         timeslots = Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots'])
-        for schedule in timeslots:
-            for time_slot in schedule:
+        bad_time = None
+        for schedule_ts in timeslots:
+            if bad_time: break
+            for time_slot in schedule_ts:
                 if 'start_time' in time_slot:
                     if isinstance(time_slot['start_time'], str):
                         time_slot['start_time'] = datetime.time.fromisoformat(time_slot['start_time'])
+                    elif isinstance(time_slot['start_time'], int):
+                        # We get there when the format HH:MM:SS has been misunderstood by yaml
+                        # typically when the quotes are missing and time is not beginning with 0
+                        # example : 16:30:30 will be interpreted as an angle in degrees and converted into an integer !
+                        start_time = time_slot['start_time']
+                        if start_time>86400: # max 24 hours = 24*3600°
+                            bad_time = start_time
+                            break
+                        hour = (start_time//3600)
+                        min = (start_time%3600)//60
+                        sec:int = (start_time%3600)%60
+                        start_time = str(hour).zfill(2) + ':' + str(min).zfill(2) + ':' + str(sec).zfill(2)
+                        time_slot['start_time'] = datetime.time.fromisoformat(start_time)
+                    else:
+                        bad_time = start_time
+                        break
+        if bad_time:
+            return CfgError(ECfgError.BAD_VALUE, "/scheduler/schedules['"+schedule['alias']+"']/schedule_items/timeslots_sets/timeslots", None, {'value':start_time}, self.logger)
+        return None
 
     def __convert_schedule_dates_to_string(schedule):
         timeslots = Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots'])

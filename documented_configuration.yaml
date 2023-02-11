@@ -1,3 +1,5 @@
+version: 2 # version of the file format, do not edit
+
 settings:
   message_repeater:
     # delay, after a setpoint has been sent, before a new attempt is made

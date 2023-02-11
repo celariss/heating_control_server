@@ -1,5 +1,6 @@
 
-- alias: mqtt_command_climate
+- alias: heating_ctrl_receive_setpoint
+  id: heating_ctrl_receive_setpoint
   mode: parallel
   trigger:
     - platform: mqtt

@@ -18,7 +18,7 @@ class YamlTagsResolver :
     def create_yaml_loader(secret_filename:str) -> yaml.BaseLoader:
         """Create a yaml loader able to process tags in yaml data
 
-        :param secret_filename: yaml file that contains secrets
+        :param secret_filename: yaml file that contains secrets, may not exist
         :type secret_filename: str
         :return: the created loader
         :rtype: yaml.BaseLoader
