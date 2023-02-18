@@ -1,3 +1,6 @@
 {
-    "autoDocstring.docstringFormat": "sphinx"
+    "autoDocstring.docstringFormat": "sphinx",
+    "editor.codeActionsOnSave": {
+		"source.fixAll": true
+	},
 }

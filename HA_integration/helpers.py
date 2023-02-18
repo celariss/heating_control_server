@@ -3,6 +3,7 @@ import os
 import shutil
 import importlib.util
 import configparser
+import re
 
 try:
     from ruamel.yaml import *
@@ -11,6 +12,11 @@ except ImportError:
     ruamel_available = False
 else:
     ruamel_available = True
+
+# Pattern to get version from string :
+#   A.B.C.DbE
+# with optional D, some optional characters before A, and optional build version E
+version_re: re.Pattern = re.compile('[a-zA-Z]*(\\d+)\\.(\\d+)\\.(\\d+)(?:\\.(\\d+))?(?:b(\\d+))?')
 
 
 def exit_script(value: int = 1):
@@ -80,9 +86,23 @@ def read_ini_file(filepath: str, section_name: str, mandatory_params: list) -> d
                       "' : unsupported type '"+str(type_)+"'")
     return params
 
+def compare_versions(version1:str, version2:str) -> int:
+    match1:re.Match = version_re.match(version1)
+    match2:re.Match = version_re.match(version2)
+    bad_version = None
+    if not match1 or len(match1.groups())<3: bad_version = version1
+    if not match2 or len(match2.groups())<3: bad_version = version2
+    if bad_version:
+        log_error("Bad version string: "+bad_version)
+    for i in range(5):
+        v1 = int(match1.group(i+1)) if match1.group(i+1) else 0
+        v2 = int(match2.group(i+1)) if match2.group(i+1) else 0
+        if v1 != v2:
+            return v1 - v2
+    return 0
 
 def copy_file(src: str, dst: str, srcMustExist: bool = True):
-    log("Copying file '"+src+"' to '"+dst+"' ...")
+    #log("Copying file '"+src+"' to '"+dst+"' ...")
     if os.path.exists(src):
         shutil.copy(src, dst)
     elif srcMustExist:
@@ -96,7 +116,7 @@ def copy_folder(src: str, dst: str, srcMustExist: bool = True, mergeDst: bool = 
     :type src: str
     :param dst: target folder path
     :type dst: str
-    :param srcMustExist: _description_, defaults to True
+    :param srcMustExist: If True, check the src path (and log an error), defaults to True
     :type srcMustExist: bool, optional
     :param mergeDst: If True the target is not removed, defaults to False
     :type mergeDst: bool, optional
@@ -114,29 +134,32 @@ def remove_file(path: str, save_suffix: str = '~'):
     """Make a copy of a file, using given suffix, before removing it.
     Does not complain if file to remove does not exist
 
-    :param path: _description_
+    :param path: path to file to remove
     :type path: str
-    :param save_suffix: _description_, defaults to '~'
+    :param save_suffix: If not None, the file is saved with given suffix, defaults to '~'
     :type save_suffix: str, optional
     """
     if os.path.exists(path):
         if save_suffix:
-            move_file(path, path+save_suffix)
+            log("...saving file '"+path+"' to '"+path+save_suffix+"'")
+            move_file(path, path+save_suffix, None)
         else:
             os.remove(path)
 
 
-def move_file(src: str, dst: str):
+def move_file(src: str, dst: str, save_suffix: str = '~'):
     """Move file even if target already exist
 
     :param src: _description_
     :type src: str
     :param dst: _description_
     :type dst: str
+    :param save_suffix: If not None, the file is saved with given suffix, defaults to '~'
+    :type save_suffix: str, optional
     """
     if os.path.exists(src):
         if os.path.exists(dst):
-            remove_file(dst, None)
+            remove_file(dst, save_suffix)
         os.rename(src, dst)
 
 
@@ -229,7 +252,7 @@ def yaml_set_params(filepath: str, params: list[(str, str)], fileMustExist: bool
             (parampath, value) = param
             (data, name) = __yaml_find_param(yaml_data, parampath)
             if data:
-                log("Setting '"+parampath+"' = "+str(value))
+                log("  -> Setting '"+parampath+"' = "+str(value))
                 data[name] = value
                 save = True
         if save:
@@ -257,7 +280,7 @@ def yaml_check_file(filepath: str, mustExist: bool = True) -> object:
                       str(exc.problem_mark.line)+' : '+exc.problem)
 
 
-def yaml_patch_file(patch_filepath: str, dst_filepath: str, primary_key: str = None):
+def yaml_patch_file(patch_filepath: str, dst_filepath: str, primary_key: str = None, save_suffix: str = '~'):
     """Put the content of source file in target file.
     Each item from source is overwritten in target if already present.
 
@@ -267,6 +290,8 @@ def yaml_patch_file(patch_filepath: str, dst_filepath: str, primary_key: str = N
     :type dst_filepath: str
     :param primary_key: If the patch_file contains a list, the primary_key is used to find each item in dst_file
     :type primary_key: str
+    :param save_suffix: If not None, the file is first saved with given suffix, defaults to '~'
+    :type save_suffix: str, optional
     """
 
     if not ruamel_available:
@@ -276,6 +301,10 @@ def yaml_patch_file(patch_filepath: str, dst_filepath: str, primary_key: str = N
         log_error("patch file does not exist : "+patch_filepath)
     if not os.path.exists(dst_filepath):
         log_error("target file does not exist : "+dst_filepath)
+
+    if save_suffix:
+        log("...saving file '"+dst_filepath+"' to '"+dst_filepath+save_suffix+"'")
+        copy_file(dst_filepath, dst_filepath+save_suffix)
 
     yaml = YAML(typ='rt')   # default is 'rt' (round-trip), can be 'safe'
     with open(patch_filepath, 'r', encoding='utf-8') as data_file:

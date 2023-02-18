@@ -19,7 +19,7 @@ class Configuration:
         self.config_filename = os.path.join(config_path, config_files_prefix+'configuration.yaml')
         self.default_config_filename = os.path.join(config_path, config_files_prefix+'default_configuration.yaml')
         self.secrets_filename = os.path.join(config_path, config_files_prefix+'secrets.yaml')
-        self.format_version = 2
+        self.format_version = 3
         self.load()
         
     ########################################################################################
@@ -163,6 +163,58 @@ class Configuration:
         self.save()
         return None
 
+    def change_device_name(self, old_name:str, new_name:str) -> CfgError:
+        if not self.get_device(new_name):
+            device:dict = self.get_device(old_name)
+            if not device:
+                return CfgError(ECfgError.BAD_REFERENCE, '/devices', None, {'reference':old_name}, self.logger)
+
+            for device in self.configdata['devices']:
+                if old_name in device.keys():
+                    device[new_name] = device.pop(old_name)
+                    break
+
+            Configuration.__rename_device_in_tempsets(self.get_temperature_sets(), old_name, new_name)
+            for schedule in self.get_schedules():
+                Configuration.__rename_device_in_tempsets(self.get_temperature_sets(schedule['alias']), old_name, new_name)
+                for item in schedule['schedule_items']:
+                    l:list = item['devices']
+                    if old_name in l:
+                        idx = l.index(old_name)
+                        l.pop(idx)
+                        l.insert(idx, new_name)
+            self.save()
+        else:
+            return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/devices', None, {'key':new_name}, self.logger)
+        return None
+
+    def __rename_device_in_tempsets(tempsets:list, old_name:str, new_name:str):
+        if tempsets:
+            for tempset in tempsets:
+                for dev in tempset['devices']:
+                    if dev['device_name'] == old_name:
+                        dev['device_name'] = new_name
+                        break
+
+    def set_devices_order(self, device_names:list) -> CfgError:
+        for name in device_names:
+            device:dict = self.get_device(name)
+            if not device:
+                return CfgError(ECfgError.BAD_REFERENCE, '/devices', None, {'reference':name}, self.logger)
+        
+        devices:dict = self.get_devices()
+        if len(device_names) != len(devices):
+            for name in devices:
+                if not name in device_names:
+                    return CfgError(ECfgError.MISSING_VALUE, '/devices', None, {'value':name}, self.logger)
+        
+        new_devices:list[dict] = []
+        for devname in device_names:
+            new_devices.append({devname:devices[devname]})
+        self.configdata['devices'] = new_devices
+        self.save()
+        return None
+
     def set_schedule(self, schedule:dict) -> CfgError:
         cfgErr = self.__check_mandatories(schedule, ['alias', 'schedule_items'], '/scheduler/schedules', Configuration.get(schedule, 'alias', None))
         if cfgErr: return cfgErr
@@ -213,7 +265,7 @@ class Configuration:
         self.save()
         return None
 
-    def set_temperature_sets(self, temperature_sets:dict, schedule_name:str) -> CfgError:
+    def set_temperature_sets(self, temperature_sets:list[dict], schedule_name:str) -> CfgError:
         if schedule_name == '':
             return self._set_temperature_sets(temperature_sets, self.configdata['scheduler'])
         else:
@@ -225,11 +277,12 @@ class Configuration:
     def change_schedule_name(self, old_name:str, new_name:str) -> CfgError:
         if not self.get_schedule(new_name):
             schedule = self.get_schedule(old_name)
-            if schedule:
-                schedule['alias'] = new_name
-                if self.get_scheduler()['active_schedule'] == old_name:
-                    self.get_scheduler()['active_schedule'] = new_name
-                self.save()
+            if not schedule:
+                return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/schedules', None, {'reference':old_name}, self.logger)
+            schedule['alias'] = new_name
+            if self.get_scheduler()['active_schedule'] == old_name:
+                self.get_scheduler()['active_schedule'] = new_name
+            self.save()
         else:
             return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/scheduler/schedules', None, {'key':new_name}, self.logger)
         return None
@@ -509,7 +562,7 @@ class Configuration:
     ###################################################################################
     ###                 PRIVATE MEMBERS
     ###################################################################################
-    def _set_temperature_sets(self, temperature_sets:dict, parent:dict) -> CfgError:
+    def _set_temperature_sets(self, temperature_sets:list[dict], parent:dict) -> CfgError:
         save = None
         if 'temperature_sets' in parent:
             save = parent['temperature_sets']
@@ -526,33 +579,36 @@ class Configuration:
             return cfgErr
         return None
 
+    def __convert_schedule_date_from_string(self, time:object) -> datetime.time:
+        if isinstance(time,datetime.time):
+            return time
+        result:datetime.time = None
+        try:
+            if isinstance(time, str):
+                result = datetime.time.fromisoformat(time)
+            elif isinstance(time, int):
+                # We get there when the format HH:MM:SS has been misunderstood by yaml
+                # typically when the quotes are missing and time is not beginning with 0
+                # example : 16:30:30 will be interpreted as an angle in degrees and converted into an integer !
+                if time>0 and time<=86400: # max 24 hours = 24*3600°
+                    hour = (time//3600)
+                    min = (time%3600)//60
+                    sec:int = (time%3600)%60
+                    time = str(hour).zfill(2) + ':' + str(min).zfill(2) + ':' + str(sec).zfill(2)
+                    result = datetime.time.fromisoformat(time)
+        except:
+            pass
+        return result
+
     def __convert_schedule_dates_from_string(self, schedule) -> CfgError:
         timeslots = Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots'])
-        bad_time = None
         for schedule_ts in timeslots:
-            if bad_time: break
             for time_slot in schedule_ts:
                 if 'start_time' in time_slot:
-                    if isinstance(time_slot['start_time'], str):
-                        time_slot['start_time'] = datetime.time.fromisoformat(time_slot['start_time'])
-                    elif isinstance(time_slot['start_time'], int):
-                        # We get there when the format HH:MM:SS has been misunderstood by yaml
-                        # typically when the quotes are missing and time is not beginning with 0
-                        # example : 16:30:30 will be interpreted as an angle in degrees and converted into an integer !
-                        start_time = time_slot['start_time']
-                        if start_time>86400: # max 24 hours = 24*3600°
-                            bad_time = start_time
-                            break
-                        hour = (start_time//3600)
-                        min = (start_time%3600)//60
-                        sec:int = (start_time%3600)%60
-                        start_time = str(hour).zfill(2) + ':' + str(min).zfill(2) + ':' + str(sec).zfill(2)
-                        time_slot['start_time'] = datetime.time.fromisoformat(start_time)
-                    else:
-                        bad_time = start_time
-                        break
-        if bad_time:
-            return CfgError(ECfgError.BAD_VALUE, "/scheduler/schedules['"+schedule['alias']+"']/schedule_items/timeslots_sets/timeslots", None, {'value':start_time}, self.logger)
+                    start_time = self.__convert_schedule_date_from_string(time_slot['start_time'])
+                    if not start_time:
+                        return CfgError(ECfgError.BAD_VALUE, "/scheduler/schedules['"+schedule['alias']+"']/schedule_items/timeslots_sets/timeslots", None, {'value':time_slot['start_time']}, self.logger)
+                    time_slot['start_time'] = start_time
         return None
 
     def __convert_schedule_dates_to_string(schedule):

@@ -1,8 +1,8 @@
-####################################################
-# Heating Control server
-# AUTO PUBLISH ANY CLIMATE ENTITIES TO MQTT BROKER 
-####################################################
 mqtt_statestream:
+  ####################################################
+  # Heating Control server
+  # AUTO PUBLISH ANY CLIMATE ENTITIES TO MQTT BROKER 
+  ####################################################
   base_topic: homeassistant
   publish_attributes: true
   publish_timestamps: false
@@ -12,8 +12,7 @@ mqtt_statestream:
     entity_globs:
       - climate.*
 
-####################################################
-# Enable Heating Control server custom component
-####################################################
 heating_control_srv:
-  
+  ####################################################
+  # Enable Heating Control server custom component
+  ####################################################

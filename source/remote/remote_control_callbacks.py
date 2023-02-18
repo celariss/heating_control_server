@@ -13,6 +13,12 @@ class RemoteControlCallbacks:
     def get_scheduler_config(self) -> dict:
         pass
 
+    def set_devices_order(self, remote_name:str, device_names:list):
+        pass
+
+    def set_device_name(self, remote_name:str, old_name:str, new_name:str):
+        pass
+
     def set_schedule(self, remote_name:str, schedule:dict):
         pass
 

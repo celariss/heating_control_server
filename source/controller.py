@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '0.9.2'
+VERSION = '0.9.3'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -240,6 +240,47 @@ class Controller(
     def get_scheduler_config(self) -> dict:
         return self.configuration.get_scheduler()
 
+    def set_devices_order(self, remote_name:str, device_names:list):
+        self.logger.info("[from '"+remote_name+"'] Received a new devices order : "+str(device_names))
+        err:CfgError = self.configuration.set_devices_order(device_names)
+        if not err:
+            self.remote_control.on_server_response(remote_name, 'success')
+            devices = {}
+            for devname in device_names:
+                devices[devname] = self.devices[devname]
+            self.devices = devices
+            # We need to notify devices consumers
+            self.device_interfaces.on_devices(self.devices)
+            self.remote_control.on_devices(self.devices)
+        else:
+            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.logger.error("Could not change devices order")
+
+    def set_device_name(self, remote_name:str, old_name:str, new_name:str):
+        self.logger.info("[from '"+remote_name+"'] Received name change for a device : '"+old_name+"' -> '"+new_name+"'")
+        err:CfgError = self.configuration.change_device_name(old_name, new_name)
+        if not err:
+            self.remote_control.on_server_response(remote_name, 'success')
+            # We update devices
+            new_devs:dict[str,Device] = {}
+            for name in self.devices:
+                if name == old_name:
+                    device:Device = self.devices[name]
+                    device.name = new_name
+                    new_devs[new_name] = device
+                else:
+                    new_devs[name] = self.devices[name]
+            self.devices = new_devs
+            # We need to notify devices consumers
+            self.device_interfaces.on_devices(self.devices)
+            self.remote_control.on_devices(self.devices)
+            # something changed in scheduler data
+            self.scheduler.set_scheduler(self.configuration.get_scheduler())
+            self.remote_control.on_scheduler(self.configuration.get_scheduler())
+        else:
+            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.logger.error("Could not change schedule name")
+
     def set_schedule(self, remote_name:str, schedule:dict):
         self.logger.info("[from '"+remote_name+"'] Received schedule '"+Configuration.get(schedule, 'alias','no-name')+"'")
         err:CfgError = self.configuration.set_schedule(schedule)
@@ -248,11 +289,12 @@ class Controller(
             # something changed in scheduler data
             self.scheduler.set_schedule(schedule)
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
+            
         else:
             self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
             self.logger.error("Could not set invalid schedule")
 
-    def set_temperature_sets(self, remote_name:str, temperature_sets:dict, schedule_name:str):
+    def set_temperature_sets(self, remote_name:str, temperature_sets:list[dict], schedule_name:str):
         self.logger.info("[from '"+remote_name+"'] Received new temperature sets")
         err:CfgError = self.configuration.set_temperature_sets(temperature_sets, schedule_name)
         if not err:

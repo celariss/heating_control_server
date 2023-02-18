@@ -4,45 +4,49 @@ from enum import Enum
 import logging
 
 class ECfgError(Enum):
+    # An exception has occured
+    # params : {'exception':str}
+    EXCEPTION = 1
+
     # The configuration file is missing
     # params : {'filename':str}
-    MISSING_FILE = 1
+    MISSING_FILE = 2
 
     # The configuration file content format is invalid
     # params : {'error':str}
-    BAD_FILE_CONTENT = 2
+    BAD_FILE_CONTENT = 3
 
     # One or more mandatory children nodes are missing
     # params : {'missing_children':list[str]}
-    MISSING_NODES  = 3
+    MISSING_NODES  = 4
     
     # The node's value is a reference to a missing node
     # params : {'reference':str}
-    BAD_REFERENCE  = 4
+    BAD_REFERENCE  = 5
 
     # Bad type, a list was expected for this node's value
     # params : {}
-    EXPECTED_LIST  = 5
+    EXPECTED_LIST  = 6
     
     # A unique key identifier has been used twice 
     # params : {'key':str}
-    DUPLICATE_UNIQUE_KEY  = 6
+    DUPLICATE_UNIQUE_KEY  = 7
     
     # Expected one or more children for list node
     # params : {'child_node':str}
-    EMPTY_LIST = 7
+    EMPTY_LIST = 8
     
     # The node's value is not allowed
     # params : {'value':str}
-    BAD_VALUE = 8
+    BAD_VALUE = 9
     
     # Circular references
     # params : {'aliases':list}
-    CIRCULAR_REF = 9
+    CIRCULAR_REF = 10
     
     # Missing value in list
     # params : {'value':str}
-    MISSING_VALUE = 10
+    MISSING_VALUE = 11
     
     
 
@@ -57,7 +61,8 @@ class CfgError(Exception):
         self.node_path:str = node_path
         self.generic_desc:str = ''
         nodes_desc = self.node_path+("['"+self.node_key+"']" if self.node_key else "")
-        if self.id==ECfgError.MISSING_FILE: self.generic_desc = "Configuration file is missing : "+str(self.params['filename'])
+        if self.id==ECfgError.EXCEPTION: self.generic_desc = "An Exception has occured : "+str(self.params['exception'])
+        elif self.id==ECfgError.MISSING_FILE: self.generic_desc = "Configuration file is missing : "+str(self.params['filename'])
         elif self.id==ECfgError.BAD_FILE_CONTENT: self.generic_desc = "Configuration file content is invalid : "+str(self.params['error'])
         elif self.id==ECfgError.MISSING_NODES: self.generic_desc = "Missing mandatory node(s) in <"+nodes_desc+"> : "+str(self.params['missing_children'])
         elif self.id==ECfgError.BAD_REFERENCE: self.generic_desc = "Reference to a node in <"+nodes_desc+"> that does not exist : "+str(self.params['reference'])

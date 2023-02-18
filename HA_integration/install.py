@@ -13,6 +13,7 @@ def install_server_to_ha(params:dict):
     ha_automations_file = os.path.join(config_folder,'automations.yaml')
     ha_serverconfig_file = os.path.join(config_folder,'heating_ctrl_configuration.yaml')
     ha_serverdefaultconfig_file = os.path.join(config_folder,'heating_ctrl_default_configuration.yaml')
+    ha_serverlogfile = os.path.join(config_folder,'heating_ctrl_srv.log')
     ha_custom_components_folder = os.path.join(config_folder,'custom_components')
     ha_server_addon_folder = os.path.join(ha_custom_components_folder, 'heating_control_srv')
     ha_server_source_folder = os.path.join(ha_server_addon_folder,'heating_control_server')
@@ -36,20 +37,32 @@ def install_server_to_ha(params:dict):
     # SERVER CONFIGURATION FILE
     ###################################################################
     log("Checking existing installation...")
-    file_version = yaml_get_param(ha_serverconfig_file, 'version')
-    srv_version = get_python_global(os.path.join(ha_server_source_folder, 'controller.py'), 'VERSION')
-    if srv_version:
-        log("A heating server (v"+str(srv_version)+") is already installed")
-    if file_version:
-        res = ask_user("Do you want to [K]eep or [R]eplace your schedules and devices definition ?", ['k','r'], 'k')
-        if res=='r':
+    file_version = yaml_get_param('../heating_ctrl_default_configuration.yaml', 'version')
+    ha_file_version = yaml_get_param(ha_serverconfig_file, 'version')
+    ha_srv_version = get_python_global(os.path.join(ha_server_source_folder, 'controller.py'), 'VERSION')
+    if ha_srv_version:
+        log("A heating server (v"+str(ha_srv_version)+") is already installed")
+    if ha_file_version:
+        replace_config:bool = False
+        cmp = file_version-ha_file_version
+        if cmp!=0:
+            if cmp<0:
+                log("WARNING: The current installed server configuration file has a NEWER format than the one you are installing !")
+            elif cmp>0:
+                log("WARNING: The current installed server configuration file has an older format than the one you are installing")
+            log("-> The current configuration must be erased")
+            replace_config = True
+        if not replace_config:
+            res = ask_user("Do you want to [K]eep or [R]eplace your schedules and devices definition ?", ['k','r'], 'k')
+            if res=='r': replace_config = True
+        if replace_config:
             # We delete the config files
             remove_file(ha_serverdefaultconfig_file)
             remove_file(ha_serverconfig_file)
         else:
             # The existing config file becomes the default config file
             move_file(ha_serverconfig_file, ha_serverdefaultconfig_file)
-    if os.path.exists(ha_serverdefaultconfig_file):
+    if os.path.exists(ha_serverdefaultconfig_file) and file_version==yaml_get_param(ha_serverdefaultconfig_file, 'version'):
         log("Patching configuration file '"+ha_serverdefaultconfig_file+"' ...")
     else:
         #log("Creating configuration file...")
@@ -61,7 +74,7 @@ def install_server_to_ha(params:dict):
             ('protocols/mqtt/port', params['MqttPort']),
             ('protocols/mqtt/ssl', params['MqttSsl'])
         ])
-    log("SUCCESS ! -> Please restart your HA server")
+    remove_file(ha_serverlogfile, None)
 
     ###################################################################
     # HA CONFIGURATION FILE
@@ -77,6 +90,12 @@ def install_server_to_ha(params:dict):
     copy_folder('./custom_components/heating_control_srv/', ha_server_addon_folder)
     copy_folder('../source/', ha_server_source_folder)
     copy_folder('./custom_components/config/', config_folder, mergeDst=True)
+
+    log("")
+    log("##########################################")
+    log("SUCCESS ! -> Please restart your HA server")
+    log("##########################################")
+    log("")
 
 
 

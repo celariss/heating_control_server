@@ -1,4 +1,4 @@
-version: 2 # version of the file format, do not edit
+version: 3 # version of the file format, do not edit
 
 settings:
   message_repeater:
@@ -57,20 +57,74 @@ remote_control:
     protocol:
       name: mqtt_ha
       params:
-        receive_active_schedule_topic: heatingcontrol/command/set_active_schedule # payload (json): {"schedule_name":str}
-        receive_delete_schedule_topic: heatingcontrol/command/delete_schedule # payload (json): {"schedule_name":str}
-        receive_schedule_name_topic: heatingcontrol/command/set_schedule_name # payload (json): {"old_name":str, "new_name":str}
-        receive_schedule_topic: heatingcontrol/command/set_schedule # payload (json): schedule (see schedule format later in this file)
-        receive_schedules_order: heatingcontrol/command/set_schedules_order # payload (json): List[str], i.e. : ["schedule_name1", "schedule_name2", ...]
-        receive_setpoint_topic: heatingcontrol/command/set_setpoint # payload (json): {"setpoint":double}
-        receive_tempset_name_topic: heatingcontrol/command/set_tempset_name # payload (json): {"old_name":str, "new_name":str, "schedule_name":str}
-        receive_tempsets_topic: heatingcontrol/command/set_tempsets # payload (json): {"temperature_sets":dict, "schedule_name":str}
-        send_command_response_topic: heatingcontrol/command/on_response # payload (json): {"status":["success","failure"], "error_code":int, "generic_desc":str}
-        send_current_temp_topic: heatingcontrol/devices/$(mqttid)/on_current_temp # payload: double value
-        send_devices_topic: heatingcontrol/config/on_devices # payload (json): list[device], i.e. : [{"name":"device1", "mqttid":"mqttid1"}, {"name":"device2", "mqttid":"mqttid2"}, ...]
-        send_scheduler_topic: heatingcontrol/config/on_scheduler # payload (json): scheduler (see scheduler format later in this file)
-        send_setpoint_topic: heatingcontrol/devices/$(mqttid)/on_setpoint # payload: double value
-        send_state_topic: heatingcontrol/devices/$(mqttid)/on_state # payload: false|true
+        # receive_topic: Topic on which the server receives commands sent by a remote client
+        #   payload (JSON) :
+        #     { "command": cmdname, "params": cmdparams }
+        #     where cmdname may be :
+        #       "set_setpoint" : change the setpoint of a device
+        #           -> cmdparams = {"device_name":str, "setpoint":double}
+        #       "set_devices_order" : change the order of devices declaration
+        #           -> cmdparams = ["device_name1", "device_name2", ...]
+        #       "set_device_name" : change name/alias of device
+        #           -> cmdparams = {"old_name":str, "new_name":str}
+        #       "set_active_schedule" : change current active schedule
+        #           -> cmdparams = {"schedule_name":str}
+        #       "delete_schedule" : delete schedule by name/alias
+        #           -> cmdparams = {"schedule_name":str}
+        #       "set_schedule_name" : change name/alias of schedule
+        #           -> cmdparams = {"old_name":str, "new_name":str}
+        #       "set_schedule" : change schedule content
+        #           -> cmdparams = schedule (see schedule format later in this file)
+        #       "set_schedules_order" : change the order of schedules declaration
+        #           -> cmdparams = ["schedule_name1", "schedule_name2", ...]
+        #       "set_tempset_name" : change the name/alias of a temperature set
+        #           -> cmdparams = {"old_name":str, "new_name":str, "schedule_name":str}
+        #                          if schedule_name=='' then the temperature set is global
+        #       "set_tempsets" : change all temperature sets at once
+        #           -> cmdparams = {"temperature_sets":list[temperature_set], "schedule_name":str}
+        #                          (see temperature_set format later in this file)
+        #                          if schedule_name=='' then the temperature set is global
+        receive_topic: heatingcontrol/command
+        # send_command_response_topic: topic on which the response of every command is sent
+        #   payload (JSON):
+        #     { "status":["success","failure"],
+        #       "error": {'id':str, "node":str, "node_path":str, "node_key":str, "generic_desc":str}
+        #     }
+        #     -> 'generic_desc' contains an english description of the error
+        #     -> 'node_key' is optional
+        #     -> 'id' value can be :
+        #        - 'EXCEPTION' : Then "error" also contains the following key(s):
+        #                        'error':str
+        #        - 'MISSING_FILE' : Then "error" also contains the following key(s):
+        #                        'filename':str
+        #        - 'BAD_FILE_CONTENT' : Then "error" also contains the following key(s):
+        #                        'error':str
+        #        - 'MISSING_NODES' : Then "error" also contains the following key(s):
+        #                        'missing_children':list[str]
+        #        - 'BAD_REFERENCE' : Then "error" also contains the following key(s):
+        #                        'reference':str
+        #        - 'EXPECTED_LIST' : Then "error" does not contains no more keys
+        #        - 'DUPLICATE_UNIQUE_KEY' : Then "error" also contains the following key(s):
+        #                        'key':str
+        #        - 'EMPTY_LIST' : Then "error" also contains the following key(s):
+        #                        'child_node':str
+        #        - 'BAD_VALUE' : Then "error" also contains the following key(s):
+        #                        'value':str
+        #        - 'CIRCULAR_REF' : Then "error" also contains the following key(s):
+        #                        'aliases':list[str]
+        #        - 'MISSING_VALUE' : Then "error" also contains the following key(s):
+        #                        'value':str
+        send_command_response_topic: heatingcontrol/on_cmd_response
+         # payload (json): list[device], i.e. : [{"name":"device1", "mqttid":"mqttid1"}, {"name":"device2", "mqttid":"mqttid2"}, ...]
+        send_devices_topic: heatingcontrol/serverdata/on_devices
+        # payload (json): scheduler (see scheduler format later in this file)
+        send_scheduler_topic: heatingcontrol/serverdata/on_scheduler
+        # send_device_states_base_topic: base topic on which a device status change is sent
+        #   The actual topic for a device with unique id <mqttid> is : <send_device_states_base_topic>/<id>
+        #   payload (JSON) :
+        #     {"current_temp": double, "setpoint": double, "state":str}
+        #     state can be 'false' (not available) or 'true' (available)
+        send_device_states_base_topic: heatingcontrol/serverdata/devices
 
 scheduler:
   # alias of the current active schedule

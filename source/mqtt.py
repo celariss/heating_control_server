@@ -7,10 +7,17 @@ import argparse
 import time
 import logging
 
+removeall:bool = False
+
 def on_message(client, mqtt_client: mqttclient.MQTTClient, message, tmp=None):
+    global removeall
     logger.info("Received message " + str(message.payload)
         + " on topic '" + message.topic
         + "' with QoS " + str(message.qos))
+    if removeall and message.retain:
+        logger.info("Removing message...")
+        mqtt_client.publish("", message.topic, retain=True, qos=1)
+
 
 def on_connect(client, mqtt_client: mqttclient.MQTTClient, message, returncode):
     global publish_data
@@ -18,7 +25,7 @@ def on_connect(client, mqtt_client: mqttclient.MQTTClient, message, returncode):
         print("Not connected ! Return Code :" + str(returncode))
     else:
         print("Connected !")
-        if subscribe:
+        if subscribe or removeall:
             print('Subscribing ...')
             mqtt_client.subscribe(topic,1)
         if publish_data:
@@ -55,6 +62,7 @@ parser.add_argument("user", help='Broker user name')
 parser.add_argument("pwd", help='Broker password')
 parser.add_argument("topic", help='Topic to publish/subscribe to')
 parser.add_argument("-s", "--subscribe", action='store_true', help="Subscribe")
+parser.add_argument("-r", "--removeall", action='store_true', help="Remove all published data on topic (data with retain flag)")
 parser.add_argument("-p", "--publish", metavar='data', help="Publish data")
 parser.add_argument("--no_ssl", action='store_true', help="Disable SSL")
 parser.add_argument("--retain", action='store_true', help="Set retain flag")
@@ -68,9 +76,10 @@ ssl = not args.no_ssl
 retain = args.retain
 topic = args.topic
 subscribe = args.subscribe
+removeall = args.removeall
 publish_data = args.publish
-if not (subscribe or publish_data):
-    print('error: either --subscribe or --publish argument is required')
+if not (subscribe or publish_data or removeall):
+    print('error: either --subscribe or --publish or --removeall argument is required')
     print()
     parser.print_help()
     parser.exit()

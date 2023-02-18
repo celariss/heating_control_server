@@ -21,7 +21,7 @@ To install the server as a add-on (custom component) on your Home Assistant inst
 ```sh
 pip install ruamel.yaml
 ```
-> [Ruamel.yaml] is a YAML parser/emitter that supports roundtrip preservation of comments, seq/map flow style, and map key order. IT is very useful to patch yaml files without messing with existing structure and comments
+> [Ruamel.yaml] is a YAML parser/emitter that supports roundtrip preservation of comments, seq/map flow style, and map key order. It is very useful to patch yaml files without messing with existing structure and comments.
 
 #### 2. Create an install.ini file
 Copy the file `install_example.ini` to `install.ini` and update all parameters to match your own configuration :
@@ -56,7 +56,7 @@ If needed, the script may ask you some questions (for example, in case a server 
 > IMPORTANT: Do not forget to restart your Home Assistant instance !
 
 
-## ... Or manually
+## ... Or install manually
 #### 1. Update the configuration file
 The configuration file to update is located here : `./heating_ctrl_default_configuration.yaml`
 
