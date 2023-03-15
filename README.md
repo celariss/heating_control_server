@@ -22,8 +22,9 @@ This project has other repositories :
 
 ## Project Architecture
 <p align="middle">
-	<img src="doc/img/heating-ctrl-project-arch.jpg"/>
+	<img src="doc/img/project_arch.png"/>
 </p>
+> This image uses resources from flaticon.com
 
 ## Features
 The server is able to :
@@ -96,7 +97,7 @@ And it depends on following python 3 libraries :
 ## Server Architecture
 The following figure shows the internal architecture of the server software :
 <p align="middle">
-	<img src="doc/img/heating-ctrl-srv-arch.jpg"/>
+	<img src="doc/img/server_arch.png"/>
 </p>
 
 ## Other

@@ -7,8 +7,10 @@ import threading
 
 
 class PendingCommand:
-    def __init__(self, cmdId:str, callable, args:list):
-        self.cmdId:str = cmdId
+    def __init__(self, device:str, command:str, callable, args:list):
+        #self.cmdId:str = cmdId
+        self.device = device
+        self.command = command
         self.callable = callable
         self.args:list = args
         self.repeatTime:datetime = datetime.now()
@@ -17,7 +19,7 @@ class CommandRepeater:
     def __init__(self, repeatDelay_sec:int):
         self.logger: logging.Logger = logging.getLogger('hcs.repeater')
         self.logger.info('Starting command repeater : repeatDelay = '+str(repeatDelay_sec)+' sec')
-        self.commands:dict = {}
+        self.commands:dict[str,PendingCommand] = {}
         self.repeatDelay:timedelta = timedelta(seconds=repeatDelay_sec)
         self.repeat_thread_lock: threading.Lock = threading.Lock()
         self.repeat_thread: threading.Thread = threading.Thread(target=self.__repeat_thread)
@@ -32,22 +34,38 @@ class CommandRepeater:
         self.logger.info('Command repeater has stopped')
     
     # Add or replace repeat command
-    def addCommand(self, cmdId:str, callable, *args):
+    def addCommand(self, device:str, command:str, callable, *args):
         with self.repeat_thread_lock:
+            cmdId:str = CommandRepeater.__get_cmd_id(device,command)
             self.logger.debug("Adding command to repeater : "+cmdId)
-            self.commands[cmdId] = PendingCommand(cmdId,callable,args)
+            self.commands[cmdId] = PendingCommand(device, command, callable, args)
 
-    def getCommand(self, cmdId:str) -> PendingCommand:
+    def getCommand(self, device:str, command:str) -> PendingCommand:
         with self.repeat_thread_lock:
+            cmdId:str = CommandRepeater.__get_cmd_id(device,command)
             if cmdId in self.commands:
                 return self.commands[cmdId]
         return None
 
-    def removeCommand(self, cmdId):
+    def removeCommand(self, device:str, command:str):
         with self.repeat_thread_lock:
+            cmdId:str = CommandRepeater.__get_cmd_id(device,command)
             if cmdId in self.commands:
                 self.logger.debug("Removing command for repeater : "+cmdId)
                 self.commands.pop(cmdId)
+
+    def set_device_name(self, old_name:str, new_name:str):
+        to_rename:list = []
+        with self.repeat_thread_lock:
+            for cmdId in self.commands:
+                if self.commands[cmdId].device == old_name:
+                    to_rename.append(cmdId)
+            for cmdId in to_rename:
+                self.logger.debug("Renaming command for repeater : "+cmdId)
+                cmd = self.commands.pop(cmdId)
+                cmd.device = new_name
+                new_cmdId:str = CommandRepeater.__get_cmd_id(cmd.device,cmd.command)
+                self.commands[new_cmdId] = cmd
 
     def repeatCommands(self):
         #self.logger.debug("repeatCommands()")        
@@ -61,7 +79,7 @@ class CommandRepeater:
                     repeatList.append(cmd)
 
         for cmd in repeatList:
-            self.logger.warning("Repeat command after "+str(actualDuration.seconds)+" sec -> id:'"+cmd.cmdId+"', args:'"+str(cmd.args)+"'")
+            self.logger.warning("Repeat command after "+str(actualDuration.seconds)+" sec -> device:'"+cmd.device+"', command:'"+cmd.command+"', args:'"+str(cmd.args)+"'")
             try:
                 cmd.callable(*cmd.args)
             except Exception as e:
@@ -79,3 +97,6 @@ class CommandRepeater:
                     # End current thread
                     break;
         self.logger.info('Command repeater thread ended')
+
+    def __get_cmd_id(device:str, command:str) -> str:
+        return command + '-' + device

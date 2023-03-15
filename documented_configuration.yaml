@@ -8,6 +8,17 @@ settings:
   scheduler:
     # delay, after program has started, before the scheduler is initiated
     init_delay_sec: 20
+    # (OPTIONAL) in case a device receives a setpoint different from current scheduled value,
+    # the manual mode reset event indicates how long, or on what event, the scheduler must wait before
+    # setting back the setpoint to its scheduled value
+    #
+    # This field may contain (defaults to "setpoint_change"):
+    # - An integer value in range [0-24] : this is a duration (number of hours)
+    # - "timeslot_change" : this is a date (when current timeslot in active schedule for this device ends,
+    #                                even if the setpoint is not changing on next timeslot)
+    # - "setpoint_change" : this is a date (when current scheduled setpoint actually changes for this device)
+    # - "schedule_change" : this is a date (when a scheduled setpoint of ANY device changes)
+    manual_mode_reset_event: setpoint_change
   # (OPTIONAL) detect any new device published on the MQTT broker and
   # add it to the "devices" section of the configuration file
   auto_discovery:

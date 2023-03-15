@@ -109,8 +109,15 @@ def copy_file(src: str, dst: str, srcMustExist: bool = True):
         log_error("Missing file : "+src)
 
 
-def copy_folder(src: str, dst: str, srcMustExist: bool = True, mergeDst: bool = False):
+def copy_folder(src: str, dst: str, srcMustExist: bool = True, mergeDst: bool = False, ignore=None):
     """Copy folder, even if target folder already exists
+
+    The optional ignore argument is a callable. If given, it
+    is called with the `src` parameter, which is the directory
+    being visited by copytree(), and `names` which is the list of
+    `src` contents, as returned by os.listdir():
+
+        callable(src, names) -> ignored_names
 
     :param src: source folder path
     :type src: str
@@ -120,12 +127,14 @@ def copy_folder(src: str, dst: str, srcMustExist: bool = True, mergeDst: bool = 
     :type srcMustExist: bool, optional
     :param mergeDst: If True the target is not removed, defaults to False
     :type mergeDst: bool, optional
+    :param ignore: If not None, callable to call to get files to ignore
+    :type ignore: callable(src, names) -> ignored_names, optional
     """
     log("Copying folder '"+src+"' to '"+dst+"' ...")
     if os.path.exists(src):
         if (not mergeDst) and os.path.exists(dst):
             shutil.rmtree(dst)
-        shutil.copytree(src, dst, dirs_exist_ok=mergeDst)
+        shutil.copytree(src, dst, dirs_exist_ok=mergeDst, ignore=ignore)
     elif srcMustExist:
         log_error("Missing folder : "+src)
 

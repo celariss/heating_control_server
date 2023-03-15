@@ -88,7 +88,7 @@ def install_server_to_ha(params:dict):
     # COPY OF CUSTOM COMPONENT FILES
     ###################################################################
     copy_folder('./custom_components/heating_control_srv/', ha_server_addon_folder)
-    copy_folder('../source/', ha_server_source_folder)
+    copy_folder('../source/', ha_server_source_folder, ignore=__python_ignore__)
     copy_folder('./custom_components/config/', config_folder, mergeDst=True)
 
     log("")
@@ -97,7 +97,10 @@ def install_server_to_ha(params:dict):
     log("##########################################")
     log("")
 
-
+def __python_ignore__(src:str, names:list[str]) -> list[str]:
+    if '__pycache__' in names:
+        return ['__pycache__']
+    return []
 
 def main(argv):
     argParser = argparse.ArgumentParser(description="This script installs the heating control server on a running Home Assistant instance")

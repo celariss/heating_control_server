@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '0.9.3'
+VERSION = '0.9.3.2'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -100,13 +100,12 @@ class Controller(
         success:bool = device_name in self.devices
         if success:
             device:Device = self.devices[device_name]
-            cmdId:str = "set_dev_"+param_name+"_" + device_name
-            cmd:PendingCommand = self.repeater.getCommand(cmdId)
+            cmd:PendingCommand = self.repeater.getCommand(device_name, param_name)
             if param_name == 'setpoint':
                 curSetpoint:float = device.setpoint
                 if cmd and not force_update: curSetpoint = cmd.args[2]
                 if force_update or (curSetpoint != param_value):
-                    self.repeater.addCommand(cmdId, self.device_interfaces.set_device_parameter, device, param_name, param_value)
+                    self.repeater.addCommand(device_name, param_name, self.device_interfaces.set_device_parameter, device, param_name, param_value)
                     self.device_interfaces.set_device_parameter(device, param_name, param_value)
                 else:
                     self.logger.debug("__set_device_parameter() : setpoint is already good !")
@@ -157,7 +156,10 @@ class Controller(
         if not self.scheduler:
             # At least one protocol is available, so we can start the scheduler
             config_scheduler = self.configuration.get_scheduler()
-            self.scheduler = Scheduler(config_scheduler, self, self.devices.keys(), self.configuration.get_scheduler_init_delai())
+            self.scheduler = Scheduler(config_scheduler,
+                                       self, self.devices.keys(),
+                                       self.configuration.get_scheduler_init_delai(),
+                                       self.configuration.get_scheduler_manual_mode_reset_event())
         else:
             # We need to notify the scheduler about new accessible devices
             new_visible_devices = []
@@ -202,7 +204,7 @@ class Controller(
         if device.setpoint != value:
             self.logger.info("Setpoint for device['"+device.name+"'] has changed. New value : '"+str(value)+"°'")
             device.setpoint = value
-        self.repeater.removeCommand("set_dev_setpoint_" + device.name)
+        self.repeater.removeCommand(device.name, 'setpoint')
         self.remote_control.on_device_setpoint(device.name, value)
 
     def on_discovered_device(self, device:Device):
@@ -272,10 +274,11 @@ class Controller(
                     new_devs[name] = self.devices[name]
             self.devices = new_devs
             # We need to notify devices consumers
+            self.repeater.set_device_name(old_name, new_name)
             self.device_interfaces.on_devices(self.devices)
             self.remote_control.on_devices(self.devices)
+            self.scheduler.on_devices(self.devices, self.configuration.get_scheduler())
             # something changed in scheduler data
-            self.scheduler.set_scheduler(self.configuration.get_scheduler())
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
             self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())

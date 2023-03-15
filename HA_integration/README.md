@@ -55,8 +55,11 @@ If needed, the script may ask you some questions (for example, in case a server 
 
 > IMPORTANT: Do not forget to restart your Home Assistant instance !
 
+That's it ! Heating controler server is already looking for existing thermostat on your HA instance to make them available on mobile and desktop clients.
+
 
 ## ... Or install manually
+The instructions that follow are done by the install script, but you also can execute them by hand :
 #### 1. Update the configuration file
 The configuration file to update is located here : `./heating_ctrl_default_configuration.yaml`
 

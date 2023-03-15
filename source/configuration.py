@@ -94,6 +94,9 @@ class Configuration:
     def get_scheduler_init_delai(self) -> int:
         return self.settings['scheduler']['init_delay_sec']
     
+    def get_scheduler_manual_mode_reset_event(self) -> str:
+        return self.settings['scheduler']['manual_mode_reset_event']
+    
     def get_protocols(self, type=None):
         if 'protocols' in self.configdata:
             return self.configdata['protocols']
@@ -668,6 +671,13 @@ class Configuration:
             init_delay = toInt(init_delay, self.logger, 'Invalid value in settings.scheduler.init_delay_sec : ')
         if not init_delay:
             scheduler['init_delay_sec'] = 20
+            save = True
+        manual_mode_reset_event = Configuration.get(scheduler, 'manual_mode_reset_event', None)
+        if manual_mode_reset_event:
+            if manual_mode_reset_event not in ["timeslot_change", "setpoint_change", "schedule_change"]:
+                self.logger.error('Invalid value in settings.scheduler.manual_mode_reset_event : '+manual_mode_reset_event)
+        if not manual_mode_reset_event:
+            scheduler['manual_mode_reset_event'] = "setpoint_change"
             save = True
 
         return save

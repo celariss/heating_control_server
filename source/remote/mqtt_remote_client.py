@@ -52,6 +52,10 @@ class MQTTRemoteClient(RemoteClientBase):
         self.client.publish(data_json, self.send_scheduler_topic, retain=True)
 
     def on_devices(self, devices: dict[str, Device]):
+        for devname in self.devices:
+            if not devname in devices:
+                mqttid:str = MQTTRemoteClient.__str2mqtt(devname)
+                self.__remove_device_topic(mqttid)
         self.devices = devices
         self.__publish_devices()
 
@@ -83,7 +87,7 @@ class MQTTRemoteClient(RemoteClientBase):
 
         # Subscribe to output topic :
         # We need to erase all previous published data for old devices may be still there
-        # self.client.subscribe(data_json, self.send_devices_topic+'/#', 1)
+        self.client.subscribe(self.send_device_states_base_topic+'/#', 1)
 
         self.__publish_devices()
 
@@ -96,9 +100,20 @@ class MQTTRemoteClient(RemoteClientBase):
     def on_client_message(self, message):
         if isinstance(message, mqtt.MQTTMessage):
             try:
-                # if message.topic.startswith(self.send_devices_topic+'/'):
-                # See if this topic is for a known device or an old one
-                if message.topic == self.receive_topic:
+                if message.topic.startswith(self.send_device_states_base_topic+'/'):
+                    if message.payload != '':
+                        # See if this topic is for a known device or an old one
+                        mqttid = message.topic[len(self.send_device_states_base_topic)+1:]
+                        found:bool = False
+                        for device in self.devices.values():
+                            devmqttid:str = MQTTRemoteClient.__str2mqtt(device.name)
+                            if mqttid == devmqttid:
+                                found = True
+                                break
+                        if not found:
+                            self.__remove_device_topic(mqttid)
+
+                elif message.topic == self.receive_topic:
                     data = json.loads(message.payload)
                     command = data['command']
                     params = data['params']
@@ -143,13 +158,20 @@ class MQTTRemoteClient(RemoteClientBase):
     def __send_device_status(self, device_name: str):
         device: Device = self.devices[device_name]
         mqttid:str = MQTTRemoteClient.__str2mqtt(device.name)
-        topic = self.send_device_states_base_topic + '/' + mqttid
+        topic = self.__get_device_states_topic(mqttid)
         data_json = json.dumps(
             {"current_temp": device.current_temperature,
              "setpoint": device.setpoint,
              "state": str(device.available).lower()
              }, default=str)
         self.client.publish(data_json, topic, retain=True, qos=1)
+
+    def __remove_device_topic(self, mqttid:str):
+        self.client.publish('', self.__get_device_states_topic(mqttid), retain=True, qos=1)
+        self.logger.info("Removed old device topic : "+mqttid)
+
+    def __get_device_states_topic(self, mqttid:str) -> str:
+        return self.send_device_states_base_topic + '/' + mqttid
 
     def on_device_state(self, device_name: str, available: bool):
         self.__send_device_status(device_name)

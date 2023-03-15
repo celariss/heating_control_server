@@ -1,3 +1,7 @@
+V0.9.4 (??) :
+	- bug fix : error in scheduler after a device name change
+	- state topics for old devices are now automatically cleaned up
+
 V0.9.3 (18/02/2023) :
 	- New mqtt interface definition for remote app
 	  -> flutter app version must be >= 0.3.0
