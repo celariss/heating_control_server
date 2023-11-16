@@ -93,7 +93,13 @@ class Controller(
             self.scheduler.stop()
             self.scheduler = None
         self.protocols.disconnect()
+        self.protocols = None
         self.logger.info('Protocol clients disconnected')
+
+        self.remote_control = None
+        self.configuration = None
+        self.devices = {}
+        self.device_interfaces = None
 
     def __set_device_parameter(self, device_name:str, param_name:str, param_value, force_update: bool) -> CfgError:
         self.logger.debug("__set_device_parameter()")

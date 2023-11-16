@@ -6,17 +6,53 @@ import sys
 import argparse
 import time
 import logging
+import json
 
 removeall:bool = False
+collect_file:str = None
+data_tree:dict = {}
+only_topics:bool = False
+
+def add_element_to_tree(tree:dict, path:list, value=None):
+    result:dict = {}
+    node:dict = data_tree
+    last:str = path.pop()
+    for element in path:
+        if not element in node:
+            node[element] = {}
+        node = node[element]
+    node[last] = value
+
+def print_tree(tree:dict, level:int=0):
+    for element in sorted(tree.keys()):
+        for i in range(level):
+            print('    ',end='')
+        print(element, end='')
+        if isinstance(tree[element], dict):
+            print()
+            print_tree(tree[element], level+1)
+        elif tree[element]:
+            print(" : "+tree[element])
+        else:
+            print()
 
 def on_message(client, mqtt_client: mqttclient.MQTTClient, message, tmp=None):
     global removeall
+    global collect_file
+    global only_topics
     logger.info("Received message " + str(message.payload)
         + " on topic '" + message.topic
         + "' with QoS " + str(message.qos))
     if removeall and message.retain:
         logger.info("Removing message...")
         mqtt_client.publish("", message.topic, retain=True, qos=1)
+    if collect_file:
+        path = message.topic.split('/')
+        value = ''
+        if not only_topics: value = message.payload.decode("utf-8")
+        add_element_to_tree(data_tree, path, value)
+        with open(collect_file, 'w', encoding="utf-8") as config_file:
+            json.dump(data_tree, config_file, indent = 4, sort_keys=True, ensure_ascii=False)
 
 
 def on_connect(client, mqtt_client: mqttclient.MQTTClient, message, returncode):
@@ -25,7 +61,7 @@ def on_connect(client, mqtt_client: mqttclient.MQTTClient, message, returncode):
         print("Not connected ! Return Code :" + str(returncode))
     else:
         print("Connected !")
-        if subscribe or removeall:
+        if subscribe or removeall or collect_file:
             print('Subscribing ...')
             mqtt_client.subscribe(topic,1)
         if publish_data:
@@ -36,6 +72,8 @@ def on_connect(client, mqtt_client: mqttclient.MQTTClient, message, returncode):
             print('  - data : '+ publish_data)
             print('  - retain : '+ str(retain))
             mqtt_client.publish(publish_data, topic, retain=retain, qos=1)
+        if collect_file:
+            print('Collecting data to file until script is stopped...')
 
 def on_publish(client, mqtt_client: mqttclient.MQTTClient, returncode):
     global EXIT
@@ -64,8 +102,10 @@ parser.add_argument("topic", help='Topic to publish/subscribe to')
 parser.add_argument("-s", "--subscribe", action='store_true', help="Subscribe")
 parser.add_argument("-r", "--removeall", action='store_true', help="Remove all published data on topic (data with retain flag)")
 parser.add_argument("-p", "--publish", metavar='data', help="Publish data")
+parser.add_argument("-c", "--collect", metavar='file', help="Subscribe and save data tree to file")
 parser.add_argument("--no_ssl", action='store_true', help="Disable SSL")
-parser.add_argument("--retain", action='store_true', help="Set retain flag")
+parser.add_argument("--retain", action='store_true', help="Set retain flag (on publish)")
+parser.add_argument("--only_topics", action='store_true', help="Don't store values (when collecting)")
 args = parser.parse_args()
 
 mqtt_broker = args.broker
@@ -78,8 +118,10 @@ topic = args.topic
 subscribe = args.subscribe
 removeall = args.removeall
 publish_data = args.publish
-if not (subscribe or publish_data or removeall):
-    print('error: either --subscribe or --publish or --removeall argument is required')
+collect_file = args.collect
+only_topics = args.only_topics
+if not (subscribe or publish_data or removeall or collect_file):
+    print('error: either --subscribe or --publish or --removeall or --collect argument is required')
     print()
     parser.print_help()
     parser.exit()
@@ -90,3 +132,6 @@ mqtt_client.connect()
 
 while not EXIT:
     time.sleep(1)
+
+if collect_file:
+    print_tree(data_tree)

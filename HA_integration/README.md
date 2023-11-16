@@ -2,7 +2,7 @@
 
 ##
 
-This readme file is about installing the server in your Home Assistant.
+This readme file is about installing the server in your Home Assistant instance (as a custom integration).
 
 To do it, you need :
 - A running instance of Home Assistant
@@ -32,19 +32,18 @@ Copy the file `install_example.ini` to `install.ini` and update all parameters t
     HAConfigFolder = \\192.168.1.150\config\
     
     # IP address or DNS host name of your MQTT broker
-    # You can a dns like duckdns.org to make your MQTT broker
-    # accessible from outside your home
-    MqttBroker = myha.duckdns.org
+    # Since the serveur is colocated with Home Assistant, use 127.0.0.1
+    MqttBroker = 127.0.0.1
     
     # MQTT user name and password, as configured in your HA instance
     MqttUser = mqtt
-    MqttPwd = toFKajued56ghT
+    MqttPwd = mypassword
 
-    # Mqtt websocket port
-    MqttPort = 8884
+    # Mqtt websocket unsecured port
+    MqttPort = 1884
     
-    # true if the given port is secured
-    MqttSsl = true
+    # Always use false for 127.0.0.1
+    MqttSsl = false
 ```
 
 #### 3. Execute the script

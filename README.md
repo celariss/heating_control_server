@@ -45,19 +45,9 @@ The server is able to :
 - Add auto-tests
 
 ## Installation inside Home Assistant
-This section only covers the case of server installation as a Home Assistant integration. As a consequence, the prerequisite is a running HA instance that contains a few thermostat entities.
-
-#### 1- MQTT Broker
-The server needs a MQTT broker instance to connect to. To activate Mosquitto broker inside HA, do the following :
-- Install the mosquitto broker add-on from the add-ons section of HA parameters
-- Declare the user 'mqtt' (or any other!) in HA settings and choose his password wisely
-> Detailed instructions can be found online...
-
-#### 3- Installation of the add-on
-To install the server as a add-on (custom component) on your Home Assistant instance, the easier way is to use the install script. Please go to [HA_integration folder](./HA_integration/) and take a look at the README file
+To install the server as a add-on (custom component) on your Home Assistant instance, go to [HA_integration folder](./HA_integration/) and take a look at the README file.md
 
 ## Standalone Installation
-TBD
 
 #### 1- Install third-party python libraries
 ```sh
@@ -80,7 +70,7 @@ You just have to update the MQTT parameters in « protocols/mqtt » section :
       user:   "mqtt"             #<-- put your mqtt user name here
       pwd:    "gfkjGHT8sx_"      #<-- put your mqtt password here
       broker: "myha.duckdns.org" #<-- put your HA instance hostname or IP address here
-      port:   8884               #<-- put your (websocket) mqtt secure port here
+      port:   8884               #<-- put your (websocket) mqtt (un)secure port here
       ssl:    true
   ```
 

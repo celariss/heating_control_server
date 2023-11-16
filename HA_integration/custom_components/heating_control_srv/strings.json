@@ -1,0 +1,33 @@
+{
+  "config": {
+    "error": {
+    },
+    "abort": {
+      "single_instance_allowed": "Only one configuration process is allowed at a time"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "test": "Test value"
+        },
+        "description": "Global options for heating control server integration",
+        "title": "Heating Control Server"
+      }
+    }
+  },
+  "options": {
+    "error": {
+    },
+    "abort": {
+    },
+    "step": {
+      "init": {
+        "data": {
+          "test": "Test value"
+        },
+        "description": "Global options for heating control server integration",
+        "title": "Heating Control Server"
+      }
+    }
+  }
+}

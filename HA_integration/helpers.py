@@ -416,6 +416,11 @@ def to_bool(element: any, error_prefix: str = '') -> bool:
     if not element is None:
         if isinstance(element, bool):
             return element
+        if isinstance(element, str):
+            if element.lower()=='false':
+                return False
+            elif element.lower()=='true':
+                return True
         try:
             return bool(element)
         except ValueError:

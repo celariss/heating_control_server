@@ -11,8 +11,3 @@ mqtt_statestream:
       - climate
     entity_globs:
       - climate.*
-
-heating_control_srv:
-  ####################################################
-  # Enable Heating Control server custom component
-  ####################################################

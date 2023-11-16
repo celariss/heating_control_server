@@ -39,9 +39,9 @@ protocols:
   - name:   "mqtt_ha"
     user:   "mqtt"          #<-- put your mqtt user name here
     pwd:    "mypasswd"      #<-- put your mqtt password here
-    broker: "192.168.0.12"  #<-- put your HA instance hostname or IP address here
-    port:   8884            #<-- put your (websocket) mqtt secure port here
-    ssl:    true
+    broker: "127.0.0.1"     #<-- put your HA instance hostname or IP address here
+    port:   1884            #<-- put your (websocket) mqtt port here
+    ssl:    false           #<-- false for a local or unsecure port, true for an SSL secured port
     clean_session: true
     on_ha_status_topic: homeassistant/status
 

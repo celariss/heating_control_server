@@ -80,8 +80,7 @@ class Scheduler:
     # get the setpoints of all devices for given date/time
     # return (status, active_schedule_alias, dict of setpoints)
     #         where each setpoint is actually a tuple (setpoint, current_timeslot_start_time)
-    # note : in case of missing setpoint, success is set to False
-    #        in case of no active schedule, the method returns (True, None, {})
+    # note : in case of no active schedule, the method returns (True, None, {})
     def get_setpoints(self, date_:datetime.datetime) ->tuple[bool, str, dict[str,tuple[float,datetime.datetime]]]:
         if 'active_schedule' in self.config_scheduler:
             active_alias:str = self.config_scheduler['active_schedule']
@@ -114,10 +113,11 @@ class Scheduler:
                             temp_set_alias = timeslot['temperature_set']
                             for device_name in schedule_item['devices']:
                                 setpoint:float = self.__get_setpoint(schedule, device_name, timeslot)
-                                setpoints[device_name] = (setpoint, timeslot['start_time'])
-                                if setpoint == None:
-                                    self.logger.error("device '"+device_name+"' is not declared in temperature set '"+temp_set_alias+"' in schedule '"+schedule['alias']+"'")
-                                    error = True
+                                if setpoint != None:
+                                    setpoints[device_name] = (setpoint, timeslot['start_time'])
+                                #else:
+                                #    self.logger.error("device '"+device_name+"' is not declared in temperature set '"+temp_set_alias+"' in schedule '"+schedule['alias']+"'")
+                                #    error = True
                             index = index+1
             
                 if not error:

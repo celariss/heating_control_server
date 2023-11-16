@@ -16,9 +16,9 @@ protocols:
   - name:   "mqtt_ha"
     user:   "mqtt"
     pwd:    "mypassord"
-    broker: "myha.duckdns.org"
-    port:   8884
-    ssl:    true
+    broker: "127.0.0.1" # if the heating server is installed as an home assistant integration
+    port:   1884
+    ssl:    false
     clean_session: true
 
 remote_control:

@@ -1,7 +1,8 @@
 {
   "domain": "heating_control_srv",
   "name": "Heating Control Server",
-  "documentation": "",
+  "config_flow": true,
+  "documentation": "https://github.com/celariss/heating_control_server",
   "dependencies": [],
   "codeowners": ["@celariss"],
   "requirements": [],
