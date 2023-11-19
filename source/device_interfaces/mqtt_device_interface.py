@@ -33,7 +33,8 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         for item in auto_discovery:
             missing: list = common.get_missing_mandatories(
                 item,
-                ['devices_base_topic', 'friendly_name_subtopic', 'on_current_temp_subtopic', 'on_setpoint_subtopic', 'on_state_subtopic', 'set_setpoint_subtopic'])
+                ['devices_base_topic', 'friendly_name_subtopic', 'on_current_temp_subtopic', 'on_setpoint_subtopic', 
+                 'on_state_subtopic', 'on_min_temp_subtopic', 'on_max_temp_subtopic', 'set_setpoint_subtopic'])
             if len(missing) > 0:
                 return CfgError(ECfgError.MISSING_NODES, '/settings/auto_discovery', None, {'missing_children':missing}, self.logger)
             # We remove the trailing /, if present
@@ -45,7 +46,8 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
     def __check_devices(self, devices: dict[str, Device]) -> CfgError:
         for device in devices.values():
             missing: list = common.get_missing_mandatories(device.protocol_params, [
-                                                           'device_base_topic', 'on_current_temp_subtopic', 'on_setpoint_subtopic', 'on_state_subtopic', 'set_setpoint_subtopic'])
+                                                           'device_base_topic', 'on_current_temp_subtopic', 'on_setpoint_subtopic',
+                                                           'on_state_subtopic', 'on_min_temp_subtopic', 'on_max_temp_subtopic', 'set_setpoint_subtopic'])
             if len(missing) > 0:
                 return CfgError(ECfgError.MISSING_NODES, '/devices/'+device.name+"/protocol[name='"+device.protocol_client_name+"']/params", None, {'missing_children':missing}, self.logger)
             # We remove the trailing /, if present
@@ -56,11 +58,9 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         return None
 
     def __remove_parameter_starting_slash(self, map: dict):
-        map['on_current_temp_subtopic'] = map['on_current_temp_subtopic'].lstrip(
-            '/')
-        map['on_setpoint_subtopic'] = map['on_setpoint_subtopic'].lstrip('/')
-        map['on_state_subtopic'] = map['on_state_subtopic'].lstrip('/')
-        map['set_setpoint_subtopic'] = map['set_setpoint_subtopic'].lstrip('/')
+        for item in map.keys():
+            if item.endswith('_subtopic'):
+                map[item] = map[item].lstrip('/')
 
     def set_device_parameter(self, device: device.Device, param_name, param_value):
         if param_name == 'setpoint':
@@ -108,27 +108,18 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         :param operation: one of ['subscribe', 'unsubscribe'], defaults to 'subscribe'
         :type operation: str, optional
         """
-        topic = self.__get_mqtt_topic(
-            device.protocol_params, 'on_current_temp_subtopic')
-        if topic:
-            self.logger.debug("["+device.protocol_client_name+"]: {operation} for device['" +
-                              device.name+"'] current temperature with topic '"+topic+"'")
-            self.callbacks.send_message_to_device(
-                device, {'type': operation, 'topic': topic})
-        topic = self.__get_mqtt_topic(
-            device.protocol_params, 'on_setpoint_subtopic')
-        if topic:
-            self.logger.debug("["+device.protocol_client_name+"]: {operation} for device['" +
-                              device.name+"'] temperature setpoint with topic '"+topic+"'")
-            self.callbacks.send_message_to_device(
-                device, {'type': operation, 'topic': topic})
-        topic = self.__get_mqtt_topic(
-            device.protocol_params, 'on_state_subtopic')
-        if topic:
-            self.logger.debug(
-                "["+device.protocol_client_name+"]: {operation} for device['"+device.name+"'] state with topic '"+topic+"'")
-            self.callbacks.send_message_to_device(
-                device, {'type': operation, 'topic': topic})
+        subtopics = [('on_current_temp_subtopic','current temperature'),
+                     ('on_setpoint_subtopic', 'temperature setpoint'),
+                     ('on_state_subtopic', 'state'), 
+                     ('on_min_temp_subtopic', 'min temperature'),
+                     ('on_max_temp_subtopic', 'max temperature')]
+        for item in subtopics:
+            topic = self.__get_mqtt_topic(device.protocol_params, item[0])
+            name = item[1]
+            if topic:
+                self.logger.debug("["+device.protocol_client_name+"]: {operation} for device['" +
+                              device.name+"'] "+name+" with topic '"+topic+"'")
+                self.callbacks.send_message_to_device(device, {'type': operation, 'topic': topic})
 
     def on_client_message(self, client_name: str, message):
         is_known_device: bool = False
@@ -155,8 +146,7 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
                         if floatData:
                             self.callbacks.on_device_setpoint(dev, floatData)
                     else:
-                        topic = self.__get_mqtt_topic(
-                            dev.protocol_params, 'on_state_subtopic')
+                        topic = self.__get_mqtt_topic(dev.protocol_params, 'on_state_subtopic')
                         if topic == message.topic:
                             is_known_topic = True
                             state = MQTTDeviceInterface.__str_2_device_state(
@@ -166,6 +156,22 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
                                     "on_client_message(): Received invalid data on '"+topic+"' : "+message.payload)
                             else:
                                 self.callbacks.on_device_state(dev, state)
+                        else:
+                            topic = self.__get_mqtt_topic(dev.protocol_params, 'on_min_temp_subtopic')
+                            if topic == message.topic:
+                                is_known_topic = True
+                                floatData = common.toFloat(
+                                    message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic+"' : ")
+                                if floatData:
+                                    self.callbacks.on_device_min_temperature(dev, floatData)
+                            else:
+                                topic = self.__get_mqtt_topic(dev.protocol_params, 'on_max_temp_subtopic')
+                                if topic == message.topic:
+                                    is_known_topic = True
+                                    floatData = common.toFloat(
+                                        message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic+"' : ")
+                                    if floatData:
+                                        self.callbacks.on_device_max_temperature(dev, floatData)
 
         if is_known_device == False and len(self.auto_discovery) > 0:
             # auto discovery is enabled
@@ -183,6 +189,8 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
                                 "on_current_temp_subtopic": item['on_current_temp_subtopic'],
                                 "on_setpoint_subtopic": item['on_setpoint_subtopic'],
                                 "on_state_subtopic": item['on_state_subtopic'],
+                                "on_min_temp_subtopic": item['on_min_temp_subtopic'],
+                                "on_max_temp_subtopic": item['on_max_temp_subtopic'],
                                 "set_setpoint_subtopic": item['set_setpoint_subtopic']
                             })
                             self.callbacks.on_discovered_device(device)

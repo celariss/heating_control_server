@@ -1,5 +1,8 @@
 __author__ = "Jérôme Cuq"
 
+import datetime
+import time
+import threading
 import common
 import json
 import logging
@@ -31,7 +34,7 @@ class MQTTRemoteClient(RemoteClientBase):
         params: dict = self.config_protocol['params']
         missing: list = common.get_missing_mandatories(
             params,
-            ['receive_topic', 'send_command_response_topic', 'send_scheduler_topic', 'send_devices_topic', 'send_device_states_base_topic'])
+            ['receive_topic', 'send_command_response_topic', 'send_scheduler_topic', 'send_devices_topic', 'send_device_states_base_topic', 'send_is_alive_topic', 'is_alive_period'])
         if len(missing) > 0:
             raise CfgError(ECfgError.MISSING_NODES, '/remote_control/protocol/params', None, {'missing_children': missing}, self.logger)
 
@@ -40,6 +43,25 @@ class MQTTRemoteClient(RemoteClientBase):
         self.send_scheduler_topic = params['send_scheduler_topic']
         self.send_devices_topic = params['send_devices_topic']
         self.send_device_states_base_topic = params['send_device_states_base_topic']
+        self.send_is_alive_topic = params['send_is_alive_topic']
+
+        self.is_alive_period = common.toInt(params['is_alive_period'], self.logger, default=-1)
+        if self.is_alive_period == -1:
+            raise CfgError(ECfgError.BAD_VALUE, '/remote_control/protocol/params', 'is_alive_period', {'value': params['is_alive_period']}, self.logger)
+        self.is_alive_thread_lock: threading.Lock = threading.Lock()
+        self.is_alive_thread: threading.Thread = None
+        self.is_alive_thread_must_stop: bool = False
+
+    def start(self):
+        if not self.is_alive_thread:
+            self.is_alive_thread: threading.Thread = threading.Thread(target=self.__is_alive_thread)
+            self.is_alive_thread_must_stop = False
+            self.is_alive_thread.start()
+
+    def stop(self):
+        if self.is_alive_thread:
+            self.is_alive_thread_must_stop = True
+            self.is_alive_thread.join()
 
     def get_name(self) -> str:
         return self.remote_name
@@ -95,7 +117,13 @@ class MQTTRemoteClient(RemoteClientBase):
         pass
 
     def on_server_alive(self, is_alive: bool):
-        pass
+        self.logger.debug('on_server_alive()')
+        topic = self.send_is_alive_topic
+        if is_alive:
+            data = datetime.datetime.now().isoformat()
+        else:
+            data = ''
+        self.client.publish(data, topic, retain=True, qos=1)
 
     def on_client_message(self, message):
         if isinstance(message, mqtt.MQTTMessage):
@@ -162,7 +190,9 @@ class MQTTRemoteClient(RemoteClientBase):
         data_json = json.dumps(
             {"current_temp": device.current_temperature,
              "setpoint": device.setpoint,
-             "state": str(device.available).lower()
+             "state": str(device.available).lower(),
+             "min_temp": device.min_temperature,
+             "max_temp": device.max_temperature,
              }, default=str)
         self.client.publish(data_json, topic, retain=True, qos=1)
 
@@ -179,6 +209,12 @@ class MQTTRemoteClient(RemoteClientBase):
     def on_device_current_temperature(self, device_name: str, value: float):
         self.__send_device_status(device_name)
 
+    def on_device_min_temperature(self, device_name:str, value:float):
+        self.__send_device_status(device_name)
+
+    def on_device_max_temperature(self, device_name:str, value:float):
+        self.__send_device_status(device_name)
+
     def on_device_setpoint(self, device_name: str, value: float):
         self.__send_device_status(device_name)
 
@@ -189,3 +225,14 @@ class MQTTRemoteClient(RemoteClientBase):
         else:
             data_json = json.dumps({'status': status}, default=str)
         self.client.publish(data_json, topic, retain=False, qos=1)
+
+    # Thread that sends is alive ping
+    def __is_alive_thread(self):
+        while threading.currentThread().is_alive():
+            time.sleep(self.is_alive_period)
+            with self.is_alive_thread_lock:
+                    if self.is_alive_thread_must_stop:
+                        # End current thread
+                        return
+                    
+            self.on_server_alive(True)

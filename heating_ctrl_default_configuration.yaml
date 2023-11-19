@@ -1,5 +1,5 @@
 # This is a minimal configuration file that allows the server to start
-version: 3
+version: 4
 
 settings:
   auto_discovery:
@@ -9,6 +9,8 @@ settings:
     on_current_temp_subtopic: current_temperature
     on_setpoint_subtopic: temperature
     on_state_subtopic: state
+    on_min_temp_subtopic: min_temp
+    on_max_temp_subtopic: max_temp
     set_setpoint_subtopic: new_setpoint
 
 protocols:
@@ -31,6 +33,8 @@ remote_control:
       send_devices_topic: heatingcontrol/serverdata/on_devices
       send_scheduler_topic: heatingcontrol/serverdata/on_scheduler
       send_device_states_base_topic: heatingcontrol/serverdata/devices
+      send_is_alive_topic: heatingcontrol/serverdata/is_alive
+      is_alive_period: 5
 
 scheduler:
   active_schedule: null

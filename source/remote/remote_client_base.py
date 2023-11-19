@@ -19,6 +19,12 @@ class RemoteClientBase:
         """
         pass
 
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+    
     def get_name(self) -> str:
         pass
 
@@ -42,6 +48,12 @@ class RemoteClientBase:
         pass
 
     def on_device_current_temperature(self, device_name:str, value:float):
+        pass
+
+    def on_device_min_temperature(self, device_name:str, value:float):
+        pass
+
+    def on_device_max_temperature(self, device_name:str, value:float):
         pass
 
     def on_device_setpoint(self, device_name:str, value:float):

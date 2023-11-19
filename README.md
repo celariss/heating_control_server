@@ -39,7 +39,6 @@ The server is able to :
 - Send logs to file for debug purpose
 
 ## TODO
-- Make a install script for Home Assistant
 - Make the mqtt connection work both with websocket and raw tcp
 - Add comments in code !
 - Add auto-tests

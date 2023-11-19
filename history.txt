@@ -1,6 +1,11 @@
-V0.9.4 (??) :
+V0.9.4 (19/11/2023) :
+	- Changes in configuration file format and interface API with remote clients :
+		. Added is_alive message
+		. Added min/max temperatures for each device
 	- bug fix : error in scheduler after a device name change
 	- state topics for old devices are now automatically cleaned up
+	- default configuration updated
+	- custom integration now appears in home assistant and can be installed/uninstalled/stopped/started from GUI
 
 V0.9.3 (18/02/2023) :
 	- New mqtt interface definition for remote app

@@ -36,6 +36,16 @@ class RemoteControl:
                 return
             self.remotes[remote_name] = remote
 
+    def start(self):
+        for remote in self.remotes.values():
+            remote.start()
+        self.on_server_alive(True)
+
+    def stop(self):
+        self.on_server_alive(False)
+        for remote in self.remotes.values():
+            remote.stop()
+
     ### return list of all remotes that use the connection client 'client_name'
     def get_remotes_by_client_name(self, client_name:str) -> list:
         res:list = []
@@ -71,6 +81,14 @@ class RemoteControl:
     def on_device_current_temperature(self, device_name:str, value:float):
         for remote in self.remotes.values():
             remote.on_device_current_temperature(device_name, value)
+
+    def on_device_min_temperature(self, device_name:str, value:float):
+        for remote in self.remotes.values():
+            remote.on_device_min_temperature(device_name, value)
+
+    def on_device_max_temperature(self, device_name:str, value:float):
+        for remote in self.remotes.values():
+            remote.on_device_max_temperature(device_name, value)
 
     def on_device_setpoint(self, device_name, value:float):
         for remote in self.remotes.values():

@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '0.9.3.2'
+VERSION = '0.9.4'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -80,12 +80,14 @@ class Controller(
 
         config_remote = self.configuration.get_remote_control()
         self.remote_control = RemoteControl(config_remote, self.devices, self)
+        self.remote_control.start()
 
         self.protocols.connect()
 
     def stop(self):
         self.logger.info('Stopping everything...')
         self.device_interfaces.on_server_alive(False)
+        self.remote_control.stop()
         if self.repeater:
             self.repeater.stop()
             self.repeater = None
@@ -94,12 +96,12 @@ class Controller(
             self.scheduler = None
         self.protocols.disconnect()
         self.protocols = None
-        self.logger.info('Protocol clients disconnected')
 
         self.remote_control = None
         self.configuration = None
         self.devices = {}
         self.device_interfaces = None
+        self.logger.info('Server stopped')
 
     def __set_device_parameter(self, device_name:str, param_name:str, param_value, force_update: bool) -> CfgError:
         self.logger.debug("__set_device_parameter()")
@@ -204,6 +206,16 @@ class Controller(
         self.logger.debug("Device['"+device.name+"']: received current_temperature '"+str(value)+"'")
         device.current_temperature = value
         self.remote_control.on_device_current_temperature(device.name, value)
+
+    def on_device_min_temperature(self, device:Device, value:float):
+        self.logger.debug("Device['"+device.name+"']: received min_temperature '"+str(value)+"'")
+        device.min_temperature = value
+        self.remote_control.on_device_min_temperature(device.name, value)
+
+    def on_device_max_temperature(self, device:Device, value:float):
+        self.logger.debug("Device['"+device.name+"']: received max_temperature '"+str(value)+"'")
+        device.max_temperature = value
+        self.remote_control.on_device_max_temperature(device.name, value)
 
     def on_device_setpoint(self, device:Device, value:float):
         self.logger.debug("Device['"+device.name+"']: received setpoint '"+str(value)+"'")

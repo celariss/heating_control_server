@@ -7,6 +7,8 @@ class Device:
         self.protocol_client_name:str = protocol_client_name
         self.protocol_params:dict = protocol_params
         self.current_temperature:float = 0.0
+        self.min_temperature:float = 5.0
+        self.max_temperature:float = 35.0
         self.setpoint:float = 0.0
         self.scheduled_setpoint:float = None
         self.available:bool = False

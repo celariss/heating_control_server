@@ -9,6 +9,12 @@ class DeviceInterfaceCallbacks:
     def on_device_current_temperature(self, device:Device, value:float):
         pass
 
+    def on_device_min_temperature(self, device:Device, value:float):
+        pass
+
+    def on_device_max_temperature(self, device:Device, value:float):
+        pass
+
     def on_device_setpoint(self, device:Device, value:float):
         pass
 
