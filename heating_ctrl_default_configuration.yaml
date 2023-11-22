@@ -1,5 +1,5 @@
 # This is a minimal configuration file that allows the server to start
-version: 4
+version: 5
 
 settings:
   auto_discovery:
@@ -22,6 +22,7 @@ protocols:
     port:   1884
     ssl:    false
     clean_session: true
+    on_ha_status_topic: homeassistant/status
 
 remote_control:
 - name: flutter

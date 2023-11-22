@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '0.9.4'
+VERSION = '0.9.5'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -149,7 +149,7 @@ class Controller(
     ################################################################################
     # END OF SchedulerCallbacks implementation
     ################################################################################
-
+    
     ################################################################################
     # Implementation of ProtocolHandlerCallbacks class
     ################################################################################

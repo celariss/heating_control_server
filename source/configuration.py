@@ -19,9 +19,9 @@ class Configuration:
         self.config_filename = os.path.join(config_path, config_files_prefix+'configuration.yaml')
         self.default_config_filename = os.path.join(config_path, config_files_prefix+'default_configuration.yaml')
         self.secrets_filename = os.path.join(config_path, config_files_prefix+'secrets.yaml')
-        self.format_version = 4
+        self.format_version = 5
         self.load()
-        
+    
     ########################################################################################
     # save/load methods
     ########################################################################################
@@ -445,6 +445,7 @@ class Configuration:
             cfgErr = self.__verify_timeslots_set(timeslots_set, weekdays, schedule, idx, tss_idx)
             if cfgErr: return cfgErr
             tss_idx = tss_idx+1
+        # we should have 7 weekdays defined : 1-7
         if len(weekdays)<7:
             missing = []
             for day in WEEKDAYS:
@@ -454,8 +455,12 @@ class Configuration:
 
     def __verify_timeslots_set(self, timeslots_set:dict, weekdays:list, schedule:dict, schedule_item_idx:int, tss_idx:int) -> CfgError:
         node_path = "/scheduler/schedules['"+schedule['alias']+"']/schedule_items['"+str(schedule_item_idx)+"']/timeslots_sets"
-        cfgErr = self.__check_mandatories(timeslots_set, ['dates', 'timeslots'], node_path, str(tss_idx))
+        cfgErr = self.__check_mandatories(timeslots_set, ['dates'], node_path, str(tss_idx))
         if cfgErr: return cfgErr
+        std_timeslots = 'timeslots' in timeslots_set
+        AB_timeslots = ('timeslots_A' in timeslots_set) and ('timeslots_B' in timeslots_set)
+        if not ((std_timeslots and not AB_timeslots) or (AB_timeslots and not std_timeslots)):
+            return CfgError(ECfgError.MISSING_NODES, node_path, None, {'missing_children':['timeslots[_A|_B]']}, self.logger)
         
         node_path = node_path+"['"+str(tss_idx)+"']"
         date_idx = 0
@@ -467,15 +472,21 @@ class Configuration:
             date_idx = date_idx + 1
             weekdays.append(date)
         
-        timeslots:list = timeslots_set['timeslots']
-        ts_idx = 0
-        for timeslot in timeslots:
-            cfgErr = self.__check_mandatories(timeslot, ['start_time', 'temperature_set'], node_path+'/timeslots')
-            if cfgErr: return cfgErr
-            if not self.__find_temperature_set(timeslot['temperature_set'], schedule):
-                return CfgError(ECfgError.BAD_REFERENCE, node_path+"/timeslots['"+str(ts_idx)+"']/temperature_set", None, {'reference':timeslot['temperature_set']}, self.logger)
-        if len(timeslots)>0:
-            timeslots[0]['start_time'] = '00:00:00'
+        timeslots_list:list = []
+        if 'timeslots' in timeslots_set:
+            timeslots_list.append(timeslots_set['timeslots'])
+        else:
+            timeslots_list.append(timeslots_set['timeslots_A'])
+            timeslots_list.append(timeslots_set['timeslots_B'])
+        for timeslots in timeslots_list:
+            ts_idx = 0
+            for timeslot in timeslots:
+                cfgErr = self.__check_mandatories(timeslot, ['start_time', 'temperature_set'], node_path+'/timeslots')
+                if cfgErr: return cfgErr
+                if not self.__find_temperature_set(timeslot['temperature_set'], schedule):
+                    return CfgError(ECfgError.BAD_REFERENCE, node_path+"/timeslots['"+str(ts_idx)+"']/temperature_set", None, {'reference':timeslot['temperature_set']}, self.logger)
+            if len(timeslots)>0:
+                timeslots[0]['start_time'] = '00:00:00'
         return None
     
     def __verify_temperature_sets(self, schedule:dict) -> CfgError:
@@ -605,6 +616,8 @@ class Configuration:
 
     def __convert_schedule_dates_from_string(self, schedule) -> CfgError:
         timeslots = Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots'])
+        timeslots.extend(Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots_A']))
+        timeslots.extend(Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots_B']))
         for schedule_ts in timeslots:
             for time_slot in schedule_ts:
                 if 'start_time' in time_slot:
@@ -616,6 +629,8 @@ class Configuration:
 
     def __convert_schedule_dates_to_string(schedule):
         timeslots = Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots'])
+        timeslots.extend(Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots_A']))
+        timeslots.extend(Configuration.get_dict_values_from_path(schedule, ['schedule_items', 'timeslots_sets', 'timeslots_B']))
         for schedule in timeslots:
             for time_slot in schedule:
                 if 'start_time' in time_slot:
@@ -637,7 +652,13 @@ class Configuration:
             Configuration._change_tempset_ref_in_tempsets(tempSets, old_name, new_name)
         for schedule_item in schedule_config['schedule_items']:
             for timeslotSet in schedule_item['timeslots_sets']:
-                for timeslot in timeslotSet['timeslots']:
+                ts:list = []
+                if 'timeslots' in timeslotSet:
+                    ts.extend(timeslotSet['timeslots'])
+                else:
+                    ts.extend(timeslotSet['timeslots_A'])
+                    ts.extend(timeslotSet['timeslots_B'])
+                for timeslot in ts:
                     if timeslot['temperature_set'] == old_name:
                         timeslot['temperature_set'] = new_name
                         result = True

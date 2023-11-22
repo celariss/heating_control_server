@@ -39,12 +39,18 @@ class Scheduler:
 
     def set_schedule(self, schedule:dict):
         alias = schedule['alias']
-        if alias in self.config_scheduler['schedules']:
-            self.config_scheduler['schedules'][alias] = schedule
+        schedule_idx = self.__get_idx_in_schedules(alias)
+        if schedule_idx>-1:
+            self.config_scheduler['schedules'][schedule_idx] = schedule
             if alias == self.config_scheduler['active_schedule']:
-                with self.active_schedule_thread_lock:
-                    # notify the thread that active schedule has changed
-                    self.active_schedule_changed = True
+                self.on_active_schedule_changed()
+    
+    def __get_idx_in_schedules(self, schedule_alias:str):
+        idx = 0
+        for schedule in self.config_scheduler['schedules']:
+            if schedule['alias'] == schedule_alias: return idx
+            idx += 1
+        return -1
 
     def on_active_schedule_changed(self):
         with self.active_schedule_thread_lock:
@@ -172,7 +178,11 @@ class Scheduler:
                     date_ok = True
                     break
             if date_ok:
-                timeslots = timeslots_set['timeslots']
+                # if a week filter (A/B) has been set, we need to check the target week of <date_>
+                week_key = 'timeslots'
+                if 'timeslots_A' in timeslots_set:
+                    week_key = 'timeslots_A' if (int(date_.strftime("%V"))%2==0) else 'timeslots_B'
+                timeslots = timeslots_set[week_key]
                 timeslot = None
                 target_time = date_.time()
                 for new_timeslot in timeslots:

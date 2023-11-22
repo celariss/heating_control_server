@@ -1,4 +1,4 @@
-version: 4 # version of the file format, do not edit
+version: 5 # version of the file format, do not edit
 
 settings:
   message_repeater:
@@ -183,10 +183,12 @@ scheduler:
         #    with 1=Monday, 2=Tuesday, ..., 7=Sunday
         # TBD : add any date in calendar (including date ranges et repeat parameter)
       - dates: ['1','2','3','4','5']
-        # time slots for this schedule.
-        # note : the first slot begins at 0:00 (start_time is ignored).
-        #        the last slot implicitly ends at midnight.
-        time_slots:
+        # either <timeslots> or <timeslots_A> AND <timeslots_B> must be defined :
+        # note : define <timeslots_A> AND <timeslots_B> for distinguishing between even and odd weeks
+        timeslots:
+        # the first slot begins at 0:00 (start_time is ignored).
+        # the last slot implicitly ends at midnight.
+        #
           # timestamp in ISO 8601 format
         - start_time: '00:00:00'
           # alias of the temperature set.
