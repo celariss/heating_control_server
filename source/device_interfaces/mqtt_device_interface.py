@@ -1,5 +1,6 @@
 __author__ = "Jérôme Cuq"
 
+from datetime import datetime, timedelta, timezone, tzinfo
 import common
 import logging
 import device
@@ -24,6 +25,11 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         # We check the content of devices
         err:CfgError = self.__check_devices(devices)
         if err: raise err
+        # will contain "partially" auto discovered devices,
+        # we wait for friendly_name AND last_update messages before deciding if a device can be automatically added
+        # note : dictionary key is the device entity name
+        self.init_date = datetime.now(timezone(timedelta(0)))
+        self.auto_discovered: dict[str, device.Device] = {}
         self.devices: dict[str, device.Device] = devices
         self.auto_discovery: list[dict] = auto_discovery
         self.device_topic_re: re.Pattern = re.compile(
@@ -33,7 +39,7 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         for item in auto_discovery:
             missing: list = common.get_missing_mandatories(
                 item,
-                ['devices_base_topic', 'friendly_name_subtopic', 'on_current_temp_subtopic', 'on_setpoint_subtopic', 
+                ['devices_base_topic', 'friendly_name_subtopic', 'last_updated_subtopic', 'on_current_temp_subtopic', 'on_setpoint_subtopic', 
                  'on_state_subtopic', 'on_min_temp_subtopic', 'on_max_temp_subtopic', 'set_setpoint_subtopic'])
             if len(missing) > 0:
                 return CfgError(ECfgError.MISSING_NODES, '/settings/auto_discovery', None, {'missing_children':missing}, self.logger)
@@ -183,8 +189,9 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
                     if match:
                         entity = match.group(1)
                         command = match.group(2)
-                        if command == item['friendly_name_subtopic']:
-                            device: Device = Device(str(message.payload).strip('"\''), self.protocol_type, client_name, {
+                        device: Device = None
+                        if not entity in self.auto_discovered:
+                            device = Device('', self.protocol_type, client_name, {
                                 "device_base_topic": base_topic + entity,
                                 "on_current_temp_subtopic": item['on_current_temp_subtopic'],
                                 "on_setpoint_subtopic": item['on_setpoint_subtopic'],
@@ -193,7 +200,17 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
                                 "on_max_temp_subtopic": item['on_max_temp_subtopic'],
                                 "set_setpoint_subtopic": item['set_setpoint_subtopic']
                             })
+                            self.auto_discovered[entity] = device
+                        else:
+                            device = self.auto_discovered[entity]
+                        if command == item['friendly_name_subtopic']:
+                            device.name = str(message.payload).strip('"\'')
+                        elif command == item['last_updated_subtopic']:
+                            device.last_updated = datetime.fromisoformat(str(message.payload))
+                        # we add this device only if we have a name and a last_updated date more recent than this server init date
+                        if device.name != '' and device.last_updated > self.init_date:
                             self.callbacks.on_discovered_device(device)
+                            self.auto_discovered.pop(entity)
 
     def on_server_alive_for_client(self, client_name: str, is_alive: bool):
         # We need to get HA status to change devices availability to False if HA goes offline

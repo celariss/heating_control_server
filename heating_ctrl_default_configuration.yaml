@@ -6,6 +6,7 @@ settings:
   - protocol_name: mqtt_ha
     devices_base_topic: homeassistant/climate/
     friendly_name_subtopic: friendly_name
+    last_updated_subtopic: last_updated
     on_current_temp_subtopic: current_temperature
     on_setpoint_subtopic: temperature
     on_state_subtopic: state

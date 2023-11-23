@@ -40,7 +40,6 @@ The server is able to :
 
 ## TODO
 - Make the mqtt connection work both with websocket and raw tcp
-- Add comments in code !
 - Add auto-tests
 
 ## Installation inside Home Assistant

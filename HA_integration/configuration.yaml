@@ -5,7 +5,7 @@ mqtt_statestream:
   ####################################################
   base_topic: homeassistant
   publish_attributes: true
-  publish_timestamps: false
+  publish_timestamps: true
   include:
     domains:
       - climate

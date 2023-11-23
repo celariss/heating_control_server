@@ -1,3 +1,8 @@
+v0.9.5 (23/11/2023) :
+	- Changes in configuration file format :
+		. added timeslots for odd and even weeks in schedule items
+		. added last_updated_subtopic in settings/auto_discovery to avoid the detection of an old device
+
 V0.9.4 (19/11/2023) :
 	- Changes in configuration file format and interface API with remote clients :
 		. Added is_alive message
