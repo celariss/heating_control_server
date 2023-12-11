@@ -19,7 +19,7 @@ class Configuration:
         self.config_filename = os.path.join(config_path, config_files_prefix+'configuration.yaml')
         self.default_config_filename = os.path.join(config_path, config_files_prefix+'default_configuration.yaml')
         self.secrets_filename = os.path.join(config_path, config_files_prefix+'secrets.yaml')
-        self.format_version = 5
+        self.format_version = 6
         self.load()
     
     ########################################################################################
@@ -114,7 +114,7 @@ class Configuration:
         if device in config_devices:
             return config_devices[device]
         return None
-
+    
     def get_scheduler(self):
         if 'scheduler' in self.configdata:
             return self.configdata['scheduler']
@@ -158,13 +158,48 @@ class Configuration:
     ########################################################################################
     # Set/Change/Delete methods
     ########################################################################################
-    def add_device(self, device_name:str, client_name:str, protocol_params:dict) -> CfgError:
+    def add_device(self, device_name:str, entity:str, client_name:str, protocol_params:dict) -> CfgError:
         devices:dict = self.get_devices()
         if device_name in devices:
             return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/devices', None, {'key':device_name}, self.logger)
-        self.configdata['devices'].append({device_name: {'protocol':{'name':client_name, 'params':protocol_params}}})
+        if device_name=='':
+            return CfgError(ECfgError.BAD_VALUE, '/devices', None, {'value':str(device_name)}, self.logger)
+        self.configdata['devices'].append({device_name: {'entity':entity,'protocol':{'name':client_name, 'params':protocol_params}}})
         self.save()
         return None
+    
+    def change_device_entity(self, device_name:str, entity:str, protocol_params:dict) -> CfgError:
+        device:dict = self.get_device(device_name)
+        if not device:
+            return CfgError(ECfgError.MISSING_VALUE, '/devices', None, {'value':device_name}, self.logger)
+        device['entity'] = entity
+        device['protocol']['params'] = protocol_params
+        self.save()
+        return None
+    
+    def delete_device(self, device_name:str):
+        if not self.get_device(device_name):
+            return CfgError(ECfgError.MISSING_VALUE, '/devices', None, {'value':device_name}, self.logger)
+        
+        # Looking for device_name in temperature sets and schedules
+        err:bool = Configuration.__is_device_in_tempsets(self.get_temperature_sets(), device_name)
+        if not err:
+            for schedule in self.get_schedules():
+                err = err or Configuration.__is_device_in_tempsets(self.get_temperature_sets(schedule['alias']), device_name)
+                if err: break
+                for item in schedule['schedule_items']:
+                    l:list = item['devices']
+                    err = device_name in l
+                    if err: break
+        if err:
+            return CfgError(ECfgError.REFERENCED_NODE, '/devices/'+device_name, None, {}, self.logger)
+        
+        for device in self.configdata['devices']:
+            if device_name in device:
+                self.configdata['devices'].remove(device)
+                self.save()
+        return None
+        
 
     def change_device_name(self, old_name:str, new_name:str) -> CfgError:
         if not self.get_device(new_name):
@@ -190,6 +225,14 @@ class Configuration:
         else:
             return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/devices', None, {'key':new_name}, self.logger)
         return None
+    
+    def __is_device_in_tempsets(tempsets:list, name:str) -> bool:
+        if tempsets:
+            for tempset in tempsets:
+                for dev in tempset['devices']:
+                    if dev['device_name'] == name:
+                        return True
+        return False
 
     def __rename_device_in_tempsets(tempsets:list, old_name:str, new_name:str):
         if tempsets:
@@ -221,6 +264,8 @@ class Configuration:
     def set_schedule(self, schedule:dict) -> CfgError:
         cfgErr = self.__check_mandatories(schedule, ['alias', 'schedule_items'], '/scheduler/schedules', Configuration.get(schedule, 'alias', None))
         if cfgErr: return cfgErr
+        if schedule['alias']=='':
+            return CfgError(ECfgError.BAD_VALUE, '/scheduler/schedules', None, {'value':''}, self.logger)
         name = schedule['alias']
         scheduleConfig = self.get_schedule(name)
         new:bool = not scheduleConfig
@@ -350,6 +395,13 @@ class Configuration:
         if cfgErr: return cfgErr
         if not self.configdata['devices']:
             self.configdata['devices'] = []
+        for device in self.configdata['devices']:
+            if len(device)!=1:
+                return CfgError(ECfgError.BAD_VALUE, '/devices', None, {'value':str(device)}, self.logger)
+            name:str = list(device.keys())[0]
+            content:dict = list(device.values())[0]
+            cfgErr = self.__check_mandatories(content, ['entity', 'protocol'], '/devices/'+name)
+            if cfgErr: return cfgErr
         cfgErr = self.__verify_remote_control_config()
         if cfgErr: return cfgErr
         cfgErr = self.__verify_scheduler_config()
@@ -383,6 +435,7 @@ class Configuration:
             scheduler_data['schedules'] = []
 
         active_schedule_name = scheduler_data['active_schedule']
+        if active_schedule_name=='': active_schedule_name = None
         active_schedule = self.get_schedule(active_schedule_name)
         if active_schedule_name and not active_schedule:
             return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/active_schedule', None, {'reference':active_schedule_name}, self.logger)
@@ -501,6 +554,8 @@ class Configuration:
             for tempset in parent['temperature_sets']:
                 cfgErr = self.__check_mandatories(tempset, ['alias', 'devices'], node_path, Configuration.get(tempset, 'alias', None))
                 if cfgErr: return cfgErr
+                if tempset['alias']=='':
+                    return CfgError(ECfgError.BAD_VALUE, node_path, None, {'value':str('')}, self.logger)
                 if tempset['alias'] in tempsets:
                     return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, node_path, None, {'key':tempset['alias']}, self.logger)
                 node_path_ = node_path+"['"+tempset['alias']+"']"

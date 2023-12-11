@@ -1,6 +1,8 @@
 {
     "autoDocstring.docstringFormat": "sphinx",
     "editor.codeActionsOnSave": {
-		"source.fixAll": true
-	},
+      "source.fixAll": "explicit"
+    },
+  "docify.commentService.docstringFormat": "reST",
+  "docify.commentService.inlineComments": false,
 }

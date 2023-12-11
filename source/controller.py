@@ -1,12 +1,11 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '0.9.5'
+VERSION = '1.0.0'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
 from pathlib import Path
-import sys
-import time
+import sys,time,copy
 from command_repeater import CommandRepeater, PendingCommand
 from errors import *
 
@@ -47,7 +46,13 @@ class Controller(
         self.configuration: Configuration = None
         self.repeater: CommandRepeater = None
         self.protocols: Protocols = None
+        # list of devices declared in configuration file
+        # dictionary key is device name
         self.devices: dict[str,Device] = {}
+        # list of devices published by automation server
+        # It contains self.devices and other devices not currently in configuration file
+        # dictionary key is entity name
+        self.available_devices: dict[str,Device] = {}
         self.device_interfaces: DeviceInterfaces = None
 
     def start(self):
@@ -72,14 +77,14 @@ class Controller(
             protparams = prot['params']
             protocol_type = self.protocols.get_protocol_type_from_name(client_name)
             if protocol_type:
-                self.devices[devname] = Device(devname, protocol_type, client_name, protparams)
+                self.devices[devname] = Device(devname, devparams['entity'], protocol_type, client_name, protparams)
             else:
                 self.logger.error("ERROR: can not configure device '"+devname+"': protocol client '"+client_name+"' is not defined")
 
         self.device_interfaces = DeviceInterfaces(self.devices, self.configuration.get_auto_discovery(), self)
 
         config_remote = self.configuration.get_remote_control()
-        self.remote_control = RemoteControl(config_remote, self.devices, self)
+        self.remote_control = RemoteControl(config_remote, self.devices, self.available_devices, self)
         self.remote_control.start()
 
         self.protocols.connect()
@@ -196,45 +201,42 @@ class Controller(
     def on_device_state(self, device:Device, available:bool):
         if device.available != available:
             self.logger.info("Device['"+device.name+"']: availability state has changed to '"+str(available)+"'")
-            device.available = available
-            self.remote_control.on_device_state(device.name, available)
-            if device.available==True and device.hasScheduledSetpoint()==True:
-                self.logger.info("This device has a scheduled setpoint : "+str(device.scheduled_setpoint))
-                self.__set_device_parameter(device.name, "setpoint", device.scheduled_setpoint, True)
+            if device.name in self.devices:
+                self.remote_control.on_device_state(device, available)
+                if device.available==True and device.hasScheduledSetpoint()==True:
+                    self.logger.info("This device has a scheduled setpoint : "+str(device.scheduled_setpoint))
+                    self.__set_device_parameter(device.name, "setpoint", device.scheduled_setpoint, True)
 
     def on_device_current_temperature(self, device:Device, value:float):
         self.logger.debug("Device['"+device.name+"']: received current_temperature '"+str(value)+"'")
-        device.current_temperature = value
-        self.remote_control.on_device_current_temperature(device.name, value)
+        if device.name in self.devices:
+            self.remote_control.on_device_current_temperature(device, value)
 
     def on_device_min_temperature(self, device:Device, value:float):
         self.logger.debug("Device['"+device.name+"']: received min_temperature '"+str(value)+"'")
-        device.min_temperature = value
-        self.remote_control.on_device_min_temperature(device.name, value)
+        if device.name in self.devices:
+            self.remote_control.on_device_min_temperature(device, value)
 
     def on_device_max_temperature(self, device:Device, value:float):
         self.logger.debug("Device['"+device.name+"']: received max_temperature '"+str(value)+"'")
-        device.max_temperature = value
-        self.remote_control.on_device_max_temperature(device.name, value)
+        if device.name in self.devices:
+            self.remote_control.on_device_max_temperature(device, value)
 
     def on_device_setpoint(self, device:Device, value:float):
         self.logger.debug("Device['"+device.name+"']: received setpoint '"+str(value)+"'")
         if device.setpoint != value:
             self.logger.info("Setpoint for device['"+device.name+"'] has changed. New value : '"+str(value)+"°'")
-            device.setpoint = value
-        self.repeater.removeCommand(device.name, 'setpoint')
-        self.remote_control.on_device_setpoint(device.name, value)
+        if device.name in self.devices:
+            self.repeater.removeCommand(device.name, 'setpoint')
+            self.remote_control.on_device_setpoint(device, value)
 
     def on_discovered_device(self, device:Device):
         self.logger.debug("Device['"+device.name+"'] discovered !")
-        err:CfgError = self.configuration.add_device(device.name, device.protocol_client_name, device.protocol_params)
-        if not err:
-            self.devices[device.name] = device
+        if not device.entity in self.available_devices:
+            self.available_devices[device.entity] = device
             # We need to notify devices consumers
-            self.device_interfaces.on_devices(self.devices)
-            self.remote_control.on_devices(self.devices)
-        else:
-            self.logger.error("Could not add invalid device")
+            self.device_interfaces.on_available_devices(self.available_devices)
+            self.remote_control.on_available_devices(self.available_devices)
 
     # protocol_msg_params content depends on the protocol handler implementation
     def send_message_to_device(self, device:Device, protocol_msg_params:dict):
@@ -301,6 +303,72 @@ class Controller(
         else:
             self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
             self.logger.error("Could not change schedule name")
+
+    def add_device(self, remote_name:str, name:str, srventity:str):
+        self.logger.info("[from '"+remote_name+"'] Received new device '"+name+"' with entity '"+srventity+"'")
+        err:CfgError = None
+        if not srventity in self.available_devices:
+            err = CfgError(ECfgError.BAD_REFERENCE, '/entities', None, {'value':srventity}, self.logger)
+        else:
+            device:Device = copy.deepcopy(self.available_devices[srventity])
+            device.name = name
+            err = self.configuration.add_device(device.name, srventity, device.protocol_client_name, device.protocol_params)
+            if not err:
+                self.devices[device.name] = device
+                self.remote_control.on_server_response(remote_name, 'success')
+                # We need to notify devices consumers
+                self.device_interfaces.on_devices(self.devices)
+                self.remote_control.on_devices(self.devices)
+        if err:
+            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.logger.error("Could not add new device from entity '"+srventity+"'")
+
+    def set_device_entity(self, remote_name:str, name:str, new_srventity:str):
+        self.logger.info("[from '"+remote_name+"'] Received device server entity change request for device '"+name+"' with new entity '"+new_srventity+"'")
+        device:Device = None
+        entity:Device = None
+        err:CfgError = None
+        if not name in self.devices:
+            err = CfgError(ECfgError.BAD_REFERENCE, '/devices', None, {'reference':name}, self.logger)
+        elif not new_srventity in self.available_devices:
+            err = CfgError(ECfgError.BAD_REFERENCE, '/entities', None, {'value':new_srventity}, self.logger)
+        else:
+            device = self.devices[name]
+            entity = self.available_devices[new_srventity]
+            err = self.configuration.change_device_entity(device.name, new_srventity, entity.protocol_params)
+        if not err:
+            self.remote_control.on_server_response(remote_name, 'success')
+            # Changing entity means changing all device parameters but name
+            # => we take device parameters from entity object
+            new_device:Device = copy.deepcopy(entity)
+            new_device.name = device.name
+            self.devices[name] = new_device
+            # We need to notify devices consumers
+            self.repeater.remove_device_commands(name)
+            self.device_interfaces.on_devices(self.devices)
+            self.remote_control.on_devices(self.devices)
+            self.remote_control.send_device_data(new_device)
+            self.scheduler.refresh_setpoint(name)
+            # something changed in scheduler data
+            self.remote_control.on_scheduler(self.configuration.get_scheduler())
+        else:
+            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.logger.error("Could not change device '"+name+"' entity to '"+new_srventity+"'")
+
+    def delete_device(self, remote_name:str, name:str):
+        self.logger.info("[from '"+remote_name+"'] Received deletion request for device : '"+name+"'")
+        err:CfgError = self.configuration.delete_device(name)
+        if not err:
+            self.remote_control.on_server_response(remote_name, 'success')
+            self.devices.pop(name)
+            # We need to notify devices consumers
+            self.repeater.remove_device_commands(name)
+            self.device_interfaces.on_devices(self.devices)
+            self.remote_control.on_devices(self.devices)
+            self.scheduler.on_devices(self.devices, self.configuration.get_scheduler())
+        else:
+            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.logger.error("Could not delete device")
 
     def set_schedule(self, remote_name:str, schedule:dict):
         self.logger.info("[from '"+remote_name+"'] Received schedule '"+Configuration.get(schedule, 'alias','no-name')+"'")

@@ -10,7 +10,7 @@ import logging
 
 
 class RemoteControl:
-    def __init__(self, config_remote_control, devices: dict[str,Device], callbacks:RemoteControlCallbacks):
+    def __init__(self, config_remote_control, devices: dict[str,Device], available_devices: dict[str, Device], callbacks:RemoteControlCallbacks):
         """
         :param config_remote_control: _description_
         :type config_remote_control: _type_
@@ -30,7 +30,7 @@ class RemoteControl:
             protocol_type = callbacks.get_protocol_type_from_name(client_name)
             # Only MQTT protocol is known so far
             if protocol_type == MQTTProtocolHandler.get_config_type():
-                remote = MQTTRemoteClient(remote_name, config_remote, callbacks.get_client_by_name(client_name), devices, callbacks)
+                remote = MQTTRemoteClient(remote_name, config_remote, callbacks.get_client_by_name(client_name), devices, available_devices, callbacks)
             else:
                 self.logger.error("Invalid configuration for remote_control '"+protocol_type+"': unknown protocol type '"+protocol_type+"'")
                 return
@@ -53,6 +53,11 @@ class RemoteControl:
             if self.remotes[name].get_client_name()==client_name:
                 res.append(self.remotes[name])
         return res
+    
+    ## send current device data to all clients
+    def send_device_data(self, device_name: str):
+        for name in self.remotes:
+            self.remotes[name].send_device_data(device_name)
 
     def on_client_connect(self, client_name):
         for remote in self.get_remotes_by_client_name(client_name):
@@ -101,6 +106,10 @@ class RemoteControl:
     def on_devices(self, devices:dict[str,Device]):
         for remote in self.remotes.values():
             remote.on_devices(devices)
+
+    def on_available_devices(self, devices:dict[str,Device]):
+        for remote in self.remotes.values():
+            remote.on_available_devices(devices)
 
     def on_server_response(self, remote_name:str, status:str, error:dict=None):
         self.logger.info("Sending server response to remote '"+remote_name+"' : status="+status+(", error="+str(error) if error else ""));

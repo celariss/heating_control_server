@@ -47,6 +47,10 @@ class ECfgError(Enum):
     # Missing value in list
     # params : {'value':str}
     MISSING_VALUE = 11
+
+    # trying to remove a node that is referenced in configuration
+    # params : {}
+    REFERENCED_NODE = 12
     
     
 
@@ -72,6 +76,7 @@ class CfgError(Exception):
         elif self.id==ECfgError.BAD_VALUE: self.generic_desc = "Invalid value for node <"+nodes_desc+"> : "+str(self.params['value'])
         elif self.id==ECfgError.MISSING_VALUE: self.generic_desc = "A value was expected in list for node <"+nodes_desc+"> : "+str(self.params['value'])
         elif self.id==ECfgError.CIRCULAR_REF: self.generic_desc = "Circular dependency detected between items "+str(self.params['aliases'])+" in <"+nodes_desc+">"
+        elif self.id==ECfgError.REFERENCED_NODE: self.generic_desc = "Can not remove node since it is still referenced : <"+node_path+">"
         else: self.generic_desc = "Unknown error"
         if logger:
             logger.error(self.generic_desc)

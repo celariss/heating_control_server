@@ -4,8 +4,9 @@ from datetime import datetime
 
 
 class Device:
-    def __init__(self, dev_name:str, protocol_type:str, protocol_client_name:str, protocol_params: dict):
+    def __init__(self, dev_name:str, entity:str, protocol_type:str, protocol_client_name:str, protocol_params: dict):
         self.name:str = dev_name
+        self.entity:str = entity
         self.protocol_type:str = protocol_type
         self.protocol_client_name:str = protocol_client_name
         self.protocol_params:dict = protocol_params

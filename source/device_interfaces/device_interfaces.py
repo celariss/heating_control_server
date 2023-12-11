@@ -67,13 +67,18 @@ class DeviceInterfaces:
 
     def on_devices(self, devices:dict[str,Device]):
         for protocol in self.interfaces:
-            prot_devices = self.__get_devices(devices, protocol)
+            #prot_devices = self.__get_devices(devices, protocol)
             self.interfaces[protocol].on_devices(devices)
+
+    def on_available_devices(self, devices:dict[str,Device]):
+        for protocol in self.interfaces:
+            #prot_devices = self.__get_devices(devices, protocol)
+            self.interfaces[protocol].on_available_devices(devices)
 
     # Ask for a device parameter change
     # param_name may be either :
     # - 'setpoint' : param_value must be a float.
-    def set_device_parameter(self, device: Device, param_name, param_value):
+    def set_device_parameter(self, device: Device, param_name:str, param_value):
         if param_name not in ['setpoint']:
             self.logger.error("set_device_parameter() : invalid param_name '"+param_name+"'")
         else:

@@ -1,3 +1,8 @@
+v1.0.0 (11/12/2023) :
+	- Changes in configuration file format :
+		. added "add_device", "delete_device", "set_device_entity" to remote api
+		. added "on_entities" notification to remote api
+
 v0.9.5 (23/11/2023) :
 	- Changes in configuration file format :
 		. added timeslots for odd and even weeks in schedule items

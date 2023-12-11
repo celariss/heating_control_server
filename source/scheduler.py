@@ -21,6 +21,7 @@ class Scheduler:
         self.config_scheduler = config_scheduler
         self.callbacks = callbacks
         self.devices:dict[str,Device] = devices
+        # dict key is device name
         self.current_setpoints: dict[str,tuple[float, datetime.datetime]] = {}
         self.active_schedule_changed = False
         self.init_delay:int = init_delay_sec
@@ -66,6 +67,19 @@ class Scheduler:
             result = self.get_setpoints(datetime.datetime.now())
             if result[0]:
                 self.current_setpoints = result[2]
+
+    def refresh_setpoint(self, device_name:str):
+        ### send the current scheduled setpoint to device_name
+
+        if device_name in self.devices and device_name in self.current_setpoints:
+            # Update the current setpoints so that the schedule thread
+            # does not refresh an other device than device_name
+            result = self.get_setpoints(datetime.datetime.now())
+            if result[0]:
+                self.current_setpoints = result[2]
+            # now we remove device_name to force the refresh
+            self.current_setpoints.pop(device_name)
+            self.active_schedule_changed = True
 
     def set_scheduler(self, scheduler:dict):
         self.config_scheduler = scheduler

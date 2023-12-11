@@ -1,5 +1,6 @@
 __author__ = "Jérôme Cuq"
 
+import copy
 import datetime
 import time
 import threading
@@ -17,10 +18,15 @@ from errors import *
 
 
 class MQTTRemoteClient(RemoteClientBase):
-    def __init__(self, remote_name, config_remote_client, client: object, devices: dict[str, Device], callbacks: RemoteControlCallbacks):
+    def __init__(self, remote_name, config_remote_client, client: object, devices: dict[str, Device], available_devices: dict[str, Device], callbacks: RemoteControlCallbacks):
         self.logger = logging.getLogger('hcs.mqttremoteclient')
         self.config_remote_client = config_remote_client
-        self.devices: dict[str, Device] = devices
+        # list of devices declared in configuration file
+        # dictionary key is device name
+        self.devices: dict[str,Device] = copy.copy(devices)
+        # list of devices published by automation server
+        # dictionary key is entity name
+        self.available_devices: dict[str,Device] = available_devices
         self.callbacks = callbacks
         self.remote_name = remote_name
         self.config_protocol = config_remote_client['protocol']
@@ -34,7 +40,8 @@ class MQTTRemoteClient(RemoteClientBase):
         params: dict = self.config_protocol['params']
         missing: list = common.get_missing_mandatories(
             params,
-            ['receive_topic', 'send_command_response_topic', 'send_scheduler_topic', 'send_devices_topic', 'send_device_states_base_topic', 'send_is_alive_topic', 'is_alive_period'])
+            ['receive_topic', 'send_command_response_topic', 'send_scheduler_topic', 'send_devices_topic', \
+             'send_entities_topic', 'send_device_states_base_topic', 'send_is_alive_topic', 'is_alive_period'])
         if len(missing) > 0:
             raise CfgError(ECfgError.MISSING_NODES, '/remote_control/protocol/params', None, {'missing_children': missing}, self.logger)
 
@@ -42,6 +49,7 @@ class MQTTRemoteClient(RemoteClientBase):
         self.send_command_response_topic = params['send_command_response_topic']
         self.send_scheduler_topic = params['send_scheduler_topic']
         self.send_devices_topic = params['send_devices_topic']
+        self.send_entities_topic = params['send_entities_topic']
         self.send_device_states_base_topic = params['send_device_states_base_topic']
         self.send_is_alive_topic = params['send_is_alive_topic']
 
@@ -74,12 +82,26 @@ class MQTTRemoteClient(RemoteClientBase):
         self.client.publish(data_json, self.send_scheduler_topic, retain=True)
 
     def on_devices(self, devices: dict[str, Device]):
+        # Remove topic of devices that do not exist anymore
         for devname in self.devices:
             if not devname in devices:
                 mqttid:str = MQTTRemoteClient.__str2mqtt(devname)
                 self.__remove_device_topic(mqttid)
-        self.devices = devices
+        # must publish data for new devices (current temp & setpoint)
+        publish_list:list = []
+        for devname in devices:
+            if not devname in self.devices:
+                publish_list.append(devname)
+        # publish devices list
+        self.devices = copy.copy(devices)
         self.__publish_devices()
+        # and data for new ones
+        for devname in publish_list:
+            self.send_device_data(self.devices[devname])
+
+    def on_available_devices(self, devices: dict[str, Device]):
+        self.available_devices = devices
+        self.__publish_available_devices()
 
     def __str2mqtt(string: str):
         return string.replace('+', '_').replace('#', '_').replace('$', '_')
@@ -88,14 +110,29 @@ class MQTTRemoteClient(RemoteClientBase):
         data_json = '['
         i = 0
         for device in self.devices.values():
+            entity:str = device.entity
             mqttid:str = MQTTRemoteClient.__str2mqtt(device.name)
             if i > 0:
                 data_json = data_json + ','
             i += 1
             data_json = data_json + '{"name": "' + device.name + \
-                '", "mqttid": "' + mqttid + '"}'
+                '", "mqttid": "' + mqttid + '", "srventity":"' + entity + '"}'
         data_json = data_json + ']'
         self.client.publish(data_json, self.send_devices_topic, retain=True)
+        self.logger.debug(data_json)
+
+    def __publish_available_devices(self):
+        data_json = '['
+        i = 0
+        for device in self.available_devices.values():
+            entity:str = device.entity
+            if i > 0:
+                data_json = data_json + ','
+            i += 1
+            data_json = data_json + '{"name": "' + device.name + \
+                '", "srventity":"' + entity + '"}'
+        data_json = data_json + ']'
+        self.client.publish(data_json, self.send_entities_topic, retain=True)
         self.logger.debug(data_json)
 
     def on_client_connect(self):
@@ -112,6 +149,7 @@ class MQTTRemoteClient(RemoteClientBase):
         self.client.subscribe(self.send_device_states_base_topic+'/#', 1)
 
         self.__publish_devices()
+        self.__publish_available_devices()
 
     def on_client_disconnect(self):
         pass
@@ -155,6 +193,12 @@ class MQTTRemoteClient(RemoteClientBase):
                         self.callbacks.set_devices_order(self.remote_name, params)
                     elif command == 'set_device_name':
                         self.callbacks.set_device_name(self.remote_name, params['old_name'], params['new_name'])
+                    elif command == 'add_device':
+                        self.callbacks.add_device(self.remote_name, params['name'], params['srventity'])
+                    elif command == 'set_device_entity':
+                        self.callbacks.set_device_entity(self.remote_name, params['name'], params['new_srventity'])
+                    elif command == 'delete_device':
+                        self.callbacks.delete_device(self.remote_name, params['name'])
                     elif command == 'set_schedule':
                         self.callbacks.set_schedule(self.remote_name, params)
                     elif command == 'set_tempsets':
@@ -183,8 +227,8 @@ class MQTTRemoteClient(RemoteClientBase):
                 err = CfgError(ECfgError.EXCEPTION, message.topic, None, {'exception':str(exc)}, self.logger)
                 self.on_server_response('failure', err.to_dict())
 
-    def __send_device_status(self, device_name: str):
-        device: Device = self.devices[device_name]
+    def send_device_data(self, device:Device):
+        #device: Device = self.devices[device.name]
         mqttid:str = MQTTRemoteClient.__str2mqtt(device.name)
         topic = self.__get_device_states_topic(mqttid)
         data_json = json.dumps(
@@ -203,20 +247,20 @@ class MQTTRemoteClient(RemoteClientBase):
     def __get_device_states_topic(self, mqttid:str) -> str:
         return self.send_device_states_base_topic + '/' + mqttid
 
-    def on_device_state(self, device_name: str, available: bool):
-        self.__send_device_status(device_name)
+    def on_device_state(self, device:Device, available: bool):
+        self.send_device_data(device)
 
-    def on_device_current_temperature(self, device_name: str, value: float):
-        self.__send_device_status(device_name)
+    def on_device_current_temperature(self, device:Device, value: float):
+        self.send_device_data(device)
 
-    def on_device_min_temperature(self, device_name:str, value:float):
-        self.__send_device_status(device_name)
+    def on_device_min_temperature(self, device:Device, value:float):
+        self.send_device_data(device)
 
-    def on_device_max_temperature(self, device_name:str, value:float):
-        self.__send_device_status(device_name)
+    def on_device_max_temperature(self, device:Device, value:float):
+        self.send_device_data(device)
 
-    def on_device_setpoint(self, device_name: str, value: float):
-        self.__send_device_status(device_name)
+    def on_device_setpoint(self, device:Device, value: float):
+        self.send_device_data(device)
 
     def on_server_response(self, status: str, error: dict = None):
         topic = self.send_command_response_topic

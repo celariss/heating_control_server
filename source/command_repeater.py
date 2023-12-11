@@ -54,6 +54,16 @@ class CommandRepeater:
                 self.logger.debug("Removing command for repeater : "+cmdId)
                 self.commands.pop(cmdId)
 
+    def remove_device_commands(self, devname:str):
+        to_delete:list = []
+        with self.repeat_thread_lock:
+            for cmdId in self.commands:
+                if self.commands[cmdId].device == devname:
+                    to_delete.append(cmdId)
+            for cmdId in to_delete:
+                self.logger.debug("Removing command for repeater : "+cmdId)
+                self.commands.pop(cmdId)
+
     def set_device_name(self, old_name:str, new_name:str):
         to_rename:list = []
         with self.repeat_thread_lock:

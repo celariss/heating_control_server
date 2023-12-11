@@ -12,6 +12,24 @@ from device import Device
 import re
 
 
+class EDevTopic(Enum):
+    """ Enumeration of device (and auto-discovery) parameters topics
+        A topic value is the id of this device parameter in configuration
+    """    
+    device_base_topic = "device_base_topic"
+    on_current_temp_subtopic = "on_current_temp_subtopic"
+    on_setpoint_subtopic = "on_setpoint_subtopic"
+    on_state_subtopic = "on_state_subtopic"
+    on_min_temp_subtopic = "on_min_temp_subtopic"
+    on_max_temp_subtopic = "on_max_temp_subtopic"
+    set_setpoint_subtopic = "set_setpoint_subtopic"
+
+class EAutoDiscoveryTopic(Enum):
+    """ Enumeration of auto-discovery specific parameters topics
+    """
+    friendly_name_subtopic = 'friendly_name_subtopic'
+    last_updated_subtopic = 'last_updated_subtopic'
+
 class MQTTDeviceInterface(DeviceInterfaceBase):
     # Implementation of DeviceInterfaceBase class
 
@@ -30,35 +48,35 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         # note : dictionary key is the device entity name
         self.init_date = datetime.now(timezone(timedelta(0)))
         self.auto_discovered: dict[str, device.Device] = {}
+        # list of devices declared in configuration file
+        # dictionary key is device name
         self.devices: dict[str, device.Device] = devices
+        # list of devices published by automation server
+        # dictionary key is entity name
+        self.available_devices: dict[str, device.Device] = {}
         self.auto_discovery: list[dict] = auto_discovery
-        self.device_topic_re: re.Pattern = re.compile(
-            '([^/]+)/([^/]+)/?')
+        self.device_topic_re: re.Pattern = re.compile('([^/]+)/([^/]+)/?')
 
     def __check_auto_discovery(self, auto_discovery: list[dict]) -> CfgError:
+        mandatories:list = [t.value for t in EDevTopic] + [t.value for t in EAutoDiscoveryTopic]
         for item in auto_discovery:
-            missing: list = common.get_missing_mandatories(
-                item,
-                ['devices_base_topic', 'friendly_name_subtopic', 'last_updated_subtopic', 'on_current_temp_subtopic', 'on_setpoint_subtopic', 
-                 'on_state_subtopic', 'on_min_temp_subtopic', 'on_max_temp_subtopic', 'set_setpoint_subtopic'])
+            missing: list = common.get_missing_mandatories(item, mandatories)
             if len(missing) > 0:
                 return CfgError(ECfgError.MISSING_NODES, '/settings/auto_discovery', None, {'missing_children':missing}, self.logger)
             # We remove the trailing /, if present
-            item['devices_base_topic'] = item['devices_base_topic'].rstrip('/')
+            item[EDevTopic.device_base_topic.value] = item[EDevTopic.device_base_topic.value].rstrip('/')
             # We remove the starting /, if present
             self.__remove_parameter_starting_slash(item)
         return None
 
     def __check_devices(self, devices: dict[str, Device]) -> CfgError:
+        mandatories:list = [t.value for t in EDevTopic]
         for device in devices.values():
-            missing: list = common.get_missing_mandatories(device.protocol_params, [
-                                                           'device_base_topic', 'on_current_temp_subtopic', 'on_setpoint_subtopic',
-                                                           'on_state_subtopic', 'on_min_temp_subtopic', 'on_max_temp_subtopic', 'set_setpoint_subtopic'])
+            missing: list = common.get_missing_mandatories(device.protocol_params, mandatories)
             if len(missing) > 0:
                 return CfgError(ECfgError.MISSING_NODES, '/devices/'+device.name+"/protocol[name='"+device.protocol_client_name+"']/params", None, {'missing_children':missing}, self.logger)
             # We remove the trailing /, if present
-            device.protocol_params['device_base_topic'] = device.protocol_params['device_base_topic'].rstrip(
-                '/')
+            device.protocol_params[EDevTopic.device_base_topic.value] = device.protocol_params[EDevTopic.device_base_topic.value].rstrip('/')
             # We remove the starting /, if present
             self.__remove_parameter_starting_slash(device.protocol_params)
         return None
@@ -68,23 +86,28 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
             if item.endswith('_subtopic'):
                 map[item] = map[item].lstrip('/')
 
-    def set_device_parameter(self, device: device.Device, param_name, param_value):
+    def set_device_parameter(self, device: device.Device, param_name:str, param_value):
         if param_name == 'setpoint':
             topic = self.__get_mqtt_topic(
-                device.protocol_params, 'set_setpoint_subtopic')
+                device.protocol_params, EDevTopic.set_setpoint_subtopic.value)
             if topic:
                 self.logger.info("["+device.protocol_client_name+"]: Setting "+param_name +
                                  " for device['"+device.name+"'] with value '"+str(param_value)+"'")
                 self.callbacks.send_message_to_device(
                     device, {'type': 'publish', 'topic': topic, 'payload': str(param_value)})
             else:
-                self.logger.error("Missing topic '"+'set_setpoint_subtopic' +
+                self.logger.error("Missing topic '"+EDevTopic.set_setpoint_subtopic.value +
                                   "' in device '"+device.name+"' configuration")
 
     def on_devices(self, devices: dict[str, Device]):
         # We check the content of devices
         self.__check_devices(devices)
         self.__subscribe_to_devices(devices)
+
+    def on_available_devices(self, devices: dict[str, Device]):
+        # We check the content of devices
+        self.__check_devices(devices)
+        self.available_devices = devices
 
     def __subscribe_to_devices(self, new_devices: dict[str, device.Device] = None):
         current_subscriptions: dict[str, device.Device] = {}
@@ -98,7 +121,7 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
                 current_subscriptions.pop(devname)
             else:
                 # We need to subscribe for changes on this device
-                device: Device = self.devices[devname]
+                device:Device = self.devices[devname]
                 self.__subscribe(device)
 
         # Every device name left in current_subscriptions must be unsubcribed
@@ -114,11 +137,11 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         :param operation: one of ['subscribe', 'unsubscribe'], defaults to 'subscribe'
         :type operation: str, optional
         """
-        subtopics = [('on_current_temp_subtopic','current temperature'),
-                     ('on_setpoint_subtopic', 'temperature setpoint'),
-                     ('on_state_subtopic', 'state'), 
-                     ('on_min_temp_subtopic', 'min temperature'),
-                     ('on_max_temp_subtopic', 'max temperature')]
+        subtopics = [(EDevTopic.on_current_temp_subtopic.value,'current temperature'),
+                     (EDevTopic.on_setpoint_subtopic.value, 'temperature setpoint'),
+                     (EDevTopic.on_state_subtopic.value, 'state'), 
+                     (EDevTopic.on_min_temp_subtopic.value, 'min temperature'),
+                     (EDevTopic.on_max_temp_subtopic.value, 'max temperature')]
         for item in subtopics:
             topic = self.__get_mqtt_topic(device.protocol_params, item[0])
             name = item[1]
@@ -127,91 +150,101 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
                               device.name+"'] "+name+" with topic '"+topic+"'")
                 self.callbacks.send_message_to_device(device, {'type': operation, 'topic': topic})
 
-    def on_client_message(self, client_name: str, message):
-        is_known_device: bool = False
-        for dev in self.devices.values():
-            if message.topic.startswith(dev.protocol_params['device_base_topic']):
-                is_known_device = True
-            if dev.protocol_client_name == client_name:
-                topic = self.__get_mqtt_topic(
-                    dev.protocol_params, 'on_current_temp_subtopic')
-                if topic == message.topic:
-                    is_known_topic = True
-                    floatData = common.toFloat(
-                        message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic+"' : ")
-                    if floatData:
-                        self.callbacks.on_device_current_temperature(
-                            dev, floatData)
-                else:
-                    topic = self.__get_mqtt_topic(
-                        dev.protocol_params, 'on_setpoint_subtopic')
-                    if topic == message.topic:
-                        is_known_topic = True
-                        floatData = common.toFloat(
-                            message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic+"' : ")
-                        if floatData:
-                            self.callbacks.on_device_setpoint(dev, floatData)
-                    else:
-                        topic = self.__get_mqtt_topic(dev.protocol_params, 'on_state_subtopic')
-                        if topic == message.topic:
-                            is_known_topic = True
-                            state = MQTTDeviceInterface.__str_2_device_state(
-                                message.payload)
-                            if state == None:
-                                self.logger.warning(
-                                    "on_client_message(): Received invalid data on '"+topic+"' : "+message.payload)
-                            else:
-                                self.callbacks.on_device_state(dev, state)
-                        else:
-                            topic = self.__get_mqtt_topic(dev.protocol_params, 'on_min_temp_subtopic')
-                            if topic == message.topic:
-                                is_known_topic = True
-                                floatData = common.toFloat(
-                                    message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic+"' : ")
-                                if floatData:
-                                    self.callbacks.on_device_min_temperature(dev, floatData)
-                            else:
-                                topic = self.__get_mqtt_topic(dev.protocol_params, 'on_max_temp_subtopic')
-                                if topic == message.topic:
-                                    is_known_topic = True
-                                    floatData = common.toFloat(
-                                        message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic+"' : ")
-                                    if floatData:
-                                        self.callbacks.on_device_max_temperature(dev, floatData)
+    def __on_device_message(self, dev:Device, message, notify2callback:bool):
+        topic_name = self.__get_topic_name(dev.protocol_params, message.topic)
+        if topic_name==EDevTopic.on_current_temp_subtopic.value:
+            floatData = common.toFloat(
+                message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic_name+"' : ")
+            if floatData:
+                dev.current_temperature = floatData
+                if notify2callback:
+                    self.callbacks.on_device_current_temperature(dev, floatData)
+        
+        elif topic_name==EDevTopic.on_setpoint_subtopic.value:
+            floatData = common.toFloat(
+                message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic_name+"' : ")
+            if floatData:
+                dev.setpoint = floatData
+                if notify2callback:
+                    self.callbacks.on_device_setpoint(dev, floatData)
 
-        if is_known_device == False and len(self.auto_discovery) > 0:
+        elif topic_name==EDevTopic.on_state_subtopic.value:
+            state = MQTTDeviceInterface.__str_2_device_state(message.payload)
+            if state == None:
+                self.logger.warning(
+                    "on_client_message(): Received invalid data on '"+topic_name+"' : "+message.payload)
+            else:
+                dev.available = state
+                if notify2callback:
+                    self.callbacks.on_device_state(dev, state)
+        
+        elif topic_name==EDevTopic.on_min_temp_subtopic.value:
+            floatData = common.toFloat(
+                message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic_name+"' : ")
+            if floatData:
+                dev.min_temperature = floatData
+                if notify2callback:
+                    self.callbacks.on_device_min_temperature(dev, floatData)
+                        
+        elif topic_name==EDevTopic.on_max_temp_subtopic.value:
+            floatData = common.toFloat(
+                message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic_name+"' : ")
+            if floatData:
+                dev.max_temperature = floatData
+                if notify2callback:
+                    self.callbacks.on_device_max_temperature(dev, floatData)
+    
+    def on_client_message(self, client_name: str, message):
+        dev:Device
+
+        for dev in self.devices.values():
+            self.__on_device_message(dev, message, True)
+        
+        for dev in self.available_devices.values():
+            self.__on_device_message(dev, message, False)
+
+        if len(self.auto_discovery) > 0:
             # auto discovery is enabled
             for item in self.auto_discovery:
-                base_topic = item['devices_base_topic'] + '/'
+                base_topic = item[EDevTopic.device_base_topic.value] + '/'
                 if message.topic.startswith(base_topic):
-                    match: re.Match = self.device_topic_re.match(
-                        message.topic[len(base_topic):])
+                    match: re.Match = self.device_topic_re.match(message.topic[len(base_topic):])
                     if match:
                         entity = match.group(1)
-                        command = match.group(2)
-                        device: Device = None
-                        if not entity in self.auto_discovered:
-                            device = Device('', self.protocol_type, client_name, {
-                                "device_base_topic": base_topic + entity,
-                                "on_current_temp_subtopic": item['on_current_temp_subtopic'],
-                                "on_setpoint_subtopic": item['on_setpoint_subtopic'],
-                                "on_state_subtopic": item['on_state_subtopic'],
-                                "on_min_temp_subtopic": item['on_min_temp_subtopic'],
-                                "on_max_temp_subtopic": item['on_max_temp_subtopic'],
-                                "set_setpoint_subtopic": item['set_setpoint_subtopic']
-                            })
-                            self.auto_discovered[entity] = device
-                        else:
-                            device = self.auto_discovered[entity]
-                        if command == item['friendly_name_subtopic']:
-                            device.name = str(message.payload).strip('"\'')
-                        elif command == item['last_updated_subtopic']:
-                            device.last_updated = datetime.fromisoformat(str(message.payload))
-                        # we add this device only if we have a name and a last_updated date more recent than this server init date
-                        if device.name != '' and device.last_updated > self.init_date:
-                            self.callbacks.on_discovered_device(device)
-                            self.auto_discovered.pop(entity)
+                        if not entity in self.available_devices:
+                            command = match.group(2)
+                            device: Device = None
+                            if not entity in self.auto_discovered:
+                                device = Device('', entity, self.protocol_type, client_name, {
+                                    EDevTopic.device_base_topic.value: base_topic + entity,
+                                    EDevTopic.on_current_temp_subtopic.value: item[EDevTopic.on_current_temp_subtopic.value],
+                                    EDevTopic.on_setpoint_subtopic.value: item[EDevTopic.on_setpoint_subtopic.value],
+                                    EDevTopic.on_state_subtopic.value: item[EDevTopic.on_state_subtopic.value],
+                                    EDevTopic.on_min_temp_subtopic.value: item[EDevTopic.on_min_temp_subtopic.value],
+                                    EDevTopic.on_max_temp_subtopic.value: item[EDevTopic.on_max_temp_subtopic.value],
+                                    EDevTopic.set_setpoint_subtopic.value: item[EDevTopic.set_setpoint_subtopic.value]
+                                })
+                                self.auto_discovered[entity] = device
+                            else:
+                                device = self.auto_discovered[entity]
+                            
+                            self.__on_device_message(device, message, False)
+                            if command == item[EAutoDiscoveryTopic.friendly_name_subtopic.value]:
+                                device.name = str(message.payload).strip('"\'')               
+                            elif command == item[EAutoDiscoveryTopic.last_updated_subtopic.value]:
+                                device.last_updated = datetime.fromisoformat(str(message.payload))
+                            # we add this device only if we have a name and a last_updated date recent enough
+                            # or if it is a device present in configuration
+                            if device.name != '' and device.last_updated > (self.init_date-timedelta(hours=5)):
+                                self.callbacks.on_discovered_device(device)
+                                #self.auto_discovered.pop(entity)
 
+    # def __isknown_device(self, entity:str) -> bool:
+    #     for name in self.devices:
+    #         if self.devices[name].entity == entity:
+    #             return True
+    #     return False
+    
     def on_server_alive_for_client(self, client_name: str, is_alive: bool):
         # We need to get HA status to change devices availability to False if HA goes offline
         if is_alive == False:
@@ -231,7 +264,7 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         if len(self.auto_discovery) > 0:
             # auto discovery is enabled
             for item in self.auto_discovery:
-                base_topic: str = item['devices_base_topic']
+                base_topic: str = item[EDevTopic.device_base_topic.value]
                 if not base_topic.endswith('/'):
                     base_topic = base_topic + '/#'
                 else:
@@ -255,7 +288,16 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
     # END OF DeviceInterfaceBase implementation
 
     # Private methods
-    def __get_mqtt_topic(self, mqtt_device_params, topic):
+    def __get_mqtt_topic(self, mqtt_device_params, topic) -> str:
         if topic in mqtt_device_params:
-            return mqtt_device_params['device_base_topic']+'/'+mqtt_device_params[topic]
+            return mqtt_device_params[EDevTopic.device_base_topic.value]+'/'+mqtt_device_params[topic]
+        return None
+
+    def __get_topic_name(self, mqtt_device_params:dict, mqtt_topic:str) -> str:
+        base_topic = mqtt_device_params[EDevTopic.device_base_topic.value]
+        if mqtt_topic.startswith(base_topic+'/'):
+            sub_topic = mqtt_topic[len(base_topic)+1:]
+            for name in mqtt_device_params:
+                if mqtt_device_params[name] == sub_topic:
+                    return name
         return None

@@ -3,6 +3,8 @@ __author__      = "Jérôme Cuq"
 from device import *
 
 class DeviceInterfaceCallbacks:
+    ### All the following notification functions must be called on received change on any device
+    ### currently in configuration
     def on_device_state(self, device:Device, available:bool):
         pass
 

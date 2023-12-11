@@ -4,7 +4,7 @@ from device import Device
 from .remote_control_callbacks import RemoteControlCallbacks
 
 class RemoteClientBase:
-    def __init__(self, remote_name:str, config_remote_client: dict, devices: dict[str,Device], callbacks:RemoteControlCallbacks):
+    def __init__(self, remote_name:str, config_remote_client: dict, devices: dict[str,Device], available_devices: dict[str, Device], callbacks:RemoteControlCallbacks):
         """_summary_
 
         :param remote_name: _description_
@@ -32,6 +32,10 @@ class RemoteClientBase:
     def get_client_name(self) -> str:
         pass
 
+    ## send all device data to client
+    def send_device_data(self, device:Device):
+        pass
+
     def on_client_connect(self):
         pass
 
@@ -44,25 +48,28 @@ class RemoteClientBase:
     def on_client_message(self, message):
         pass
 
-    def on_device_state(self, device_name:str, available:bool):
+    def on_device_state(self, device:Device, available:bool):
         pass
 
-    def on_device_current_temperature(self, device_name:str, value:float):
+    def on_device_current_temperature(self, device:Device, value:float):
         pass
 
-    def on_device_min_temperature(self, device_name:str, value:float):
+    def on_device_min_temperature(self, device:Device, value:float):
         pass
 
-    def on_device_max_temperature(self, device_name:str, value:float):
+    def on_device_max_temperature(self, device:Device, value:float):
         pass
 
-    def on_device_setpoint(self, device_name:str, value:float):
+    def on_device_setpoint(self, device:Device, value:float):
         pass
 
     def on_scheduler(self, scheduler_config:dict):
         pass
 
     def on_devices(self, devices:dict[str,Device]):
+        pass
+
+    def on_available_devices(self, devices:dict[str,Device]):
         pass
 
     def on_server_response(self, status:str, error:dict=None):

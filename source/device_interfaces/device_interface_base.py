@@ -35,9 +35,12 @@ class DeviceInterfaceBase:
     def on_devices(self, devices:dict[str,device.Device]):
         pass
 
+    def on_available_devices(self, devices:dict[str,device.Device]):
+        pass
+
     # Ask for a device parameter change
     # The implementation is in charge of sending command via DeviceInterfaceCallbacks
     # param_name may be either :
     # - 'setpoint' : param_value must be a float.
-    def set_device_parameter(self, device: device.Device, param_name, param_value):
+    def set_device_parameter(self, device: device.Device, param_name:str, param_value):
         pass
