@@ -47,7 +47,7 @@ class RemoteControl:
             remote.stop()
 
     ### return list of all remotes that use the connection client 'client_name'
-    def get_remotes_by_client_name(self, client_name:str) -> list:
+    def get_remotes_by_client_name(self, client_name:str) -> list[RemoteClientBase]:
         res:list = []
         for name in self.remotes:
             if self.remotes[name].get_client_name()==client_name:
@@ -79,25 +79,25 @@ class RemoteControl:
         for remote in self.get_remotes_by_client_name(client_name):
             remote.on_server_alive(is_alive)
 
-    def on_device_state(self, device_name:str, available:bool):
+    def on_device_state(self, device:Device, available:bool):
         for remote in self.remotes.values():
-            remote.on_device_state(device_name, available)
+            remote.on_device_state(device, available)
 
-    def on_device_current_temperature(self, device_name:str, value:float):
+    def on_device_current_temperature(self, device:Device, value:float):
         for remote in self.remotes.values():
-            remote.on_device_current_temperature(device_name, value)
+            remote.on_device_current_temperature(device, value)
 
-    def on_device_min_temperature(self, device_name:str, value:float):
+    def on_device_min_temperature(self, device:Device, value:float):
         for remote in self.remotes.values():
-            remote.on_device_min_temperature(device_name, value)
+            remote.on_device_min_temperature(device, value)
 
-    def on_device_max_temperature(self, device_name:str, value:float):
+    def on_device_max_temperature(self, device:Device, value:float):
         for remote in self.remotes.values():
-            remote.on_device_max_temperature(device_name, value)
+            remote.on_device_max_temperature(device, value)
 
-    def on_device_setpoint(self, device_name, value:float):
+    def on_device_setpoint(self, device:Device):
         for remote in self.remotes.values():
-            remote.on_device_setpoint(device_name, value)
+            remote.on_device_setpoint(device)
 
     def on_scheduler(self, scheduler_config:dict):
         for remote in self.remotes.values():

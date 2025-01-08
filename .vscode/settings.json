@@ -1,8 +1,16 @@
 {
-    "autoDocstring.docstringFormat": "sphinx",
-    "editor.codeActionsOnSave": {
-      "source.fixAll": "explicit"
-    },
+  "autoDocstring.docstringFormat": "sphinx",
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
   "docify.commentService.docstringFormat": "reST",
   "docify.commentService.inlineComments": false,
+  "python.analysis.extraPaths": [
+    "./source"
+  ],
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
 }

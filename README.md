@@ -40,7 +40,6 @@ The server is able to :
 
 ## TODO
 - Make the mqtt connection work both with websocket and raw tcp
-- Add auto-tests
 
 ## Installation inside Home Assistant
 To install the server as a add-on (custom component) on your Home Assistant instance, go to [HA_integration folder](./HA_integration/) and take a look at the README file.md

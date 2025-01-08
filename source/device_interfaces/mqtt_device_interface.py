@@ -109,8 +109,8 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
         self.__check_devices(devices)
         self.available_devices = devices
 
-    def __subscribe_to_devices(self, new_devices: dict[str, device.Device] = None):
-        current_subscriptions: dict[str, device.Device] = {}
+    def __subscribe_to_devices(self, new_devices: dict[str, Device] = None):
+        current_subscriptions: dict[str, Device] = {}
         if new_devices:
             current_subscriptions = self.devices.copy()
             self.devices = new_devices
@@ -164,9 +164,10 @@ class MQTTDeviceInterface(DeviceInterfaceBase):
             floatData = common.toFloat(
                 message.payload, self.logger, "on_client_message(): Received invalid data on '"+topic_name+"' : ")
             if floatData:
+                prev:float = dev.setpoint
                 dev.setpoint = floatData
                 if notify2callback:
-                    self.callbacks.on_device_setpoint(dev, floatData)
+                    self.callbacks.on_device_setpoint(dev, prev)
 
         elif topic_name==EDevTopic.on_state_subtopic.value:
             state = MQTTDeviceInterface.__str_2_device_state(message.payload)

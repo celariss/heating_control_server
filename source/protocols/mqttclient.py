@@ -8,11 +8,11 @@ __author__      = "Jérôme Cuq"
          https://cedalo.com/blog/understanding-mqtt-qos/
 """
 
-import threading
 import paho.mqtt.client as mqtt
 from paho.mqtt.properties import Properties
 from paho.mqtt.packettypes import PacketTypes
-import time
+
+from thread_base import ThreadBase
 
 class MQTTClient:
     # If userdata is not provided (None), it will be set to current instance of MQTTClient on any callback calling
@@ -43,9 +43,7 @@ class MQTTClient:
                 clean_session=clean_session,
                 userdata=self.userdata,
                 reconnect_on_failure=True)
-        self.connect_thread = None
-        self.connect_thread: threading.Thread
-        self.__connect_thread_must_stop: bool = False
+        self.connect_thread: ThreadBase = ThreadBase()
 
     # Callbacks must have following prototype :  
     # (MQTT v3) on_connect(paho_client, userdata, message, returncode)
@@ -62,19 +60,13 @@ class MQTTClient:
         self.paho_client.on_publish = on_publish
 
     def connect(self):
-        if not self.connect_thread:
-            self.connect_thread = threading.Thread(target=self.__connect_thread)
-            self.__connect_thread_must_stop = False
-            self.connect_thread.start()
+        self.connect_thread.start(self.__connect_thread)
 
     """ async def __async_connect(self):
         self.connect() """
 
     def disconnect(self):
-        if self.connect_thread:
-            self.__connect_thread_must_stop = True
-            self.connect_thread.join()
-            self.connect_thread = None
+        self.connect_thread.stop()
         self.paho_client.loop_stop()
         self.paho_client.disconnect()
 
@@ -102,7 +94,8 @@ class MQTTClient:
         if self.ssl:
             self.paho_client.tls_set(certfile=None, keyfile=None)
 
-        while self.__connect_thread_must_stop == False:
+        isAlive:bool = True
+        while isAlive:
             if not self.is_connected():
                 try:
                     if self.version == '5':
@@ -117,7 +110,6 @@ class MQTTClient:
                         self.paho_client.connect(self.broker,port=self.port,keepalive=60)
                     
                     self.paho_client.loop_start()
-                    self.connect_thread = None
                     return
                 
                 except TimeoutError:
@@ -125,4 +117,4 @@ class MQTTClient:
                     pass
                 except Exception as exc:
                     pass
-                time.sleep(5)
+            isAlive = self.connect_thread.wait(5)

@@ -28,6 +28,9 @@ class RemoteControlCallbacks:
     def delete_device(self, remote_name:str, name:str):
         pass
 
+    def set_scheduler_settings(self, remote_name:str, settings:dict):
+        pass
+
     def set_schedule(self, remote_name:str, schedule:dict):
         pass
 

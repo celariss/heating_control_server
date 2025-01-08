@@ -8,18 +8,20 @@ import copy
 
 from common import *
 from yaml.parser import ParserError
+from yaml.scanner import ScannerError
 from yaml_tags import YamlTagsResolver
 from errors import *
 
 WEEKDAYS:list=['1','2','3','4','5','6','7']
 
 class Configuration:
-    def __init__(self, config_path:str, config_files_prefix:str):
+    def __init__(self, config_path:str, config_files_prefix:str, auto_save:bool=True):
         self.logger = logging.getLogger('hcs.configuration')
         self.config_filename = os.path.join(config_path, config_files_prefix+'configuration.yaml')
         self.default_config_filename = os.path.join(config_path, config_files_prefix+'default_configuration.yaml')
         self.secrets_filename = os.path.join(config_path, config_files_prefix+'secrets.yaml')
         self.format_version = 6
+        self.auto_save:bool=auto_save
         self.load()
     
     ########################################################################################
@@ -53,7 +55,7 @@ class Configuration:
         with open(filename, 'r', encoding='utf-8') as config_file:
             try:
                 self.configdata = yaml.load(config_file,Loader=YamlTagsResolver.create_yaml_loader(self.secrets_filename))
-            except ParserError as exc:
+            except (ParserError, ScannerError) as exc:
                 raise CfgError(ECfgError.BAD_FILE_CONTENT, '', None, {'error':exc.problem}, self.logger)
             #self.configdata = yaml.safe_dump(config_file, allow_unicode=True)
             self.logger.debug('configuration file content : '+str(self.configdata))
@@ -66,6 +68,10 @@ class Configuration:
         if err: raise err
 
         if save:
+            self.__save()
+
+    def __save(self):
+        if self.auto_save:
             self.save()
 
     def save(self):
@@ -94,8 +100,8 @@ class Configuration:
     def get_scheduler_init_delai(self) -> int:
         return self.settings['scheduler']['init_delay_sec']
     
-    def get_scheduler_manual_mode_reset_event(self) -> str:
-        return self.settings['scheduler']['manual_mode_reset_event']
+    def get_scheduler_manual_mode_reset_event(self):
+        return self.get_scheduler()['settings']['manual_mode_reset_event']
     
     def get_protocols(self, type=None):
         if 'protocols' in self.configdata:
@@ -165,7 +171,7 @@ class Configuration:
         if device_name=='':
             return CfgError(ECfgError.BAD_VALUE, '/devices', None, {'value':str(device_name)}, self.logger)
         self.configdata['devices'].append({device_name: {'entity':entity,'protocol':{'name':client_name, 'params':protocol_params}}})
-        self.save()
+        self.__save()
         return None
     
     def change_device_entity(self, device_name:str, entity:str, protocol_params:dict) -> CfgError:
@@ -174,7 +180,7 @@ class Configuration:
             return CfgError(ECfgError.MISSING_VALUE, '/devices', None, {'value':device_name}, self.logger)
         device['entity'] = entity
         device['protocol']['params'] = protocol_params
-        self.save()
+        self.__save()
         return None
     
     def delete_device(self, device_name:str):
@@ -197,7 +203,7 @@ class Configuration:
         for device in self.configdata['devices']:
             if device_name in device:
                 self.configdata['devices'].remove(device)
-                self.save()
+                self.__save()
         return None
         
 
@@ -221,10 +227,21 @@ class Configuration:
                         idx = l.index(old_name)
                         l.pop(idx)
                         l.insert(idx, new_name)
-            self.save()
+            self.__save()
         else:
             return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/devices', None, {'key':new_name}, self.logger)
         return None
+    
+    def set_scheduler_manual_mode_reset_event(self, value) -> CfgError:
+        #save = self.get_scheduler_manual_mode_reset_event()
+        self.get_scheduler()['settings']['manual_mode_reset_event'] = value
+        CfgError = self.__verify_scheduler_config()
+        if not CfgError:
+            # there is no error detected
+            self.__save()
+        else:
+            self.load()
+            return CfgError
     
     def __is_device_in_tempsets(tempsets:list, name:str) -> bool:
         if tempsets:
@@ -258,7 +275,7 @@ class Configuration:
         for devname in device_names:
             new_devices.append({devname:devices[devname]})
         self.configdata['devices'] = new_devices
-        self.save()
+        self.__save()
         return None
 
     def set_schedule(self, schedule:dict) -> CfgError:
@@ -274,7 +291,7 @@ class Configuration:
         cfgErr = self.__verify_scheduler_config()
         if not cfgErr:
             # there is no error detected
-            self.save()
+            self.__save()
         else:
             if new:
                 Configuration.__delete_schedule(self.get_schedules(), name)
@@ -297,7 +314,7 @@ class Configuration:
                     return CfgError(ECfgError.MISSING_VALUE, '/scheduler/schedules', None, {'value':name}, self.logger)
         
         self.configdata['scheduler']['schedules'] = new_schedules
-        self.save()
+        self.__save()
         return None
 
     def set_active_schedule(self, schedule_name) -> CfgError:
@@ -310,7 +327,7 @@ class Configuration:
             else:
                 return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/schedules', None, {'reference':schedule_name}, self.logger)
 
-        self.save()
+        self.__save()
         return None
 
     def set_temperature_sets(self, temperature_sets:list[dict], schedule_name:str) -> CfgError:
@@ -330,7 +347,7 @@ class Configuration:
             schedule['alias'] = new_name
             if self.get_scheduler()['active_schedule'] == old_name:
                 self.get_scheduler()['active_schedule'] = new_name
-            self.save()
+            self.__save()
         else:
             return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/scheduler/schedules', None, {'key':new_name}, self.logger)
         return None
@@ -370,7 +387,7 @@ class Configuration:
             CfgError = self.__verify_scheduler_config()
             if not CfgError:
                 # there is no error detected
-                self.save()
+                self.__save()
             else:
                 self.load()
                 return CfgError
@@ -382,7 +399,10 @@ class Configuration:
     # Configuration verification methods
     ########################################################################################
         
-    # @return None if success, or a CfgError in case of missing mandatory nodes
+    ### each item in 'keys_list' can be either :
+    ### - a tuple (key:str, noneAllowed:bool) : the key must exists, noneAllowed indicates if None is allowed has given key value
+    ### - a mandatory key name : the key must exists and have a actual value (not None)
+    ### @return None if success, or a CfgError in case of missing mandatory nodes
     def __check_mandatories(self, dico:dict, keys_list:list, parent_node:str, node_key:str=None) -> CfgError:
         missing:list = get_missing_mandatories(dico, keys_list)
         if len(missing)>0:
@@ -433,6 +453,21 @@ class Configuration:
         if cfgErr: return cfgErr
         if not scheduler_data['schedules']:
             scheduler_data['schedules'] = []
+
+        if not 'settings' in scheduler_data:
+            scheduler_data['settings'] = {}
+        if not scheduler_data['settings']:
+            scheduler_data['settings'] = {}
+        manual_mode_reset_event = None
+        if 'manual_mode_reset_event' in scheduler_data['settings']:
+            manual_mode_reset_event = scheduler_data['settings']['manual_mode_reset_event']
+            if manual_mode_reset_event not in ["timeslot_change", "setpoint_change"]:
+                save = manual_mode_reset_event
+                manual_mode_reset_event = toInt(manual_mode_reset_event, self.logger, 'Invalid value in scheduler.settings.manual_mode_reset_event : ', None, 1, 24)
+                if not manual_mode_reset_event:
+                    return CfgError(ECfgError.BAD_VALUE, '/scheduler.settings.manual_mode_reset_event', None, {'value':save}, self.logger)
+        if not manual_mode_reset_event:
+            scheduler_data['settings']['manual_mode_reset_event'] = "setpoint_change"
 
         active_schedule_name = scheduler_data['active_schedule']
         if active_schedule_name=='': active_schedule_name = None
@@ -639,7 +674,7 @@ class Configuration:
         cfgErr = self.__verify_scheduler_config()
         if not cfgErr:
             # there is no error detected
-            self.save()
+            self.__save()
         else:
             if save:
                 parent['temperature_sets'] = save
@@ -747,13 +782,6 @@ class Configuration:
             init_delay = toInt(init_delay, self.logger, 'Invalid value in settings.scheduler.init_delay_sec : ')
         if not init_delay:
             scheduler['init_delay_sec'] = 20
-            save = True
-        manual_mode_reset_event = Configuration.get(scheduler, 'manual_mode_reset_event', None)
-        if manual_mode_reset_event:
-            if manual_mode_reset_event not in ["timeslot_change", "setpoint_change", "schedule_change"]:
-                self.logger.error('Invalid value in settings.scheduler.manual_mode_reset_event : '+manual_mode_reset_event)
-        if not manual_mode_reset_event:
-            scheduler['manual_mode_reset_event'] = "setpoint_change"
             save = True
 
         return save

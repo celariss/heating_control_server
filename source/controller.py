@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -132,18 +132,20 @@ class Controller(
     # Implementation of SchedulerCallbacks class
     ################################################################################
     # setpoints :
-    #  - Each key is a device name, each value a temperature for setpoint
-    #  - a None value means that the device has no scheduled setpoint
-    #  - ALL known devices must have a defined setpoint
-    def apply_devices_setpoints(self, setpoints: dict[str,float]):
+    #  - Each key is a device name, each value a couple (setpoint, isManual) for value
+    #  - a (None, False) value means that the device has no scheduled setpoint
+    #  - a (None, True) means that the device is in manual mode (out of schedule)
+    #  - ALL known devices must have a defined or None setpoint
+    def apply_devices_setpoints(self, setpoints: dict[str,tuple[float,bool]]):
         self.logger.info("Applying new setpoints : "+str(setpoints))
         first = True
         for device_name in setpoints:
             if device_name in self.devices:
-                if not setpoints[device_name]:
-                    self.devices[device_name].removeScheduledSetpoint()
+                if not setpoints[device_name][0]:
+                    if not setpoints[device_name][1]:
+                        self.devices[device_name].scheduled_setpoint = None
                 else:    
-                    new_setpoint = common.toFloat(setpoints[device_name], self.logger, "Invalid parameter in apply_devices_setpoints() : ")
+                    new_setpoint = common.toFloat(setpoints[device_name][0], self.logger, "Invalid parameter in apply_devices_setpoints() : ")
                     if new_setpoint:
                         if first==False: time.sleep(0.5)
                         first = False
@@ -170,7 +172,7 @@ class Controller(
             # At least one protocol is available, so we can start the scheduler
             config_scheduler = self.configuration.get_scheduler()
             self.scheduler = Scheduler(config_scheduler,
-                                       self, self.devices.keys(),
+                                       self, self.devices,
                                        self.configuration.get_scheduler_init_delai(),
                                        self.configuration.get_scheduler_manual_mode_reset_event())
         else:
@@ -222,13 +224,15 @@ class Controller(
         if device.name in self.devices:
             self.remote_control.on_device_max_temperature(device, value)
 
-    def on_device_setpoint(self, device:Device, value:float):
-        self.logger.debug("Device['"+device.name+"']: received setpoint '"+str(value)+"'")
-        if device.setpoint != value:
-            self.logger.info("Setpoint for device['"+device.name+"'] has changed. New value : '"+str(value)+"°'")
+    def on_device_setpoint(self, device:Device, previousValue:float):
+        self.logger.debug("Device['"+device.name+"']: received setpoint '"+str(device.setpoint)+"'")
+        if device.setpoint != previousValue:
+            self.logger.info("Setpoint for device['"+device.name+"'] has changed. New value : '"+str(device.setpoint)+"°'")
+            self.scheduler.on_device_setpoint(device)
+
         if device.name in self.devices:
             self.repeater.removeCommand(device.name, 'setpoint')
-            self.remote_control.on_device_setpoint(device, value)
+            self.remote_control.on_device_setpoint(device)
 
     def on_discovered_device(self, device:Device):
         self.logger.debug("Device['"+device.name+"'] discovered !")
@@ -383,6 +387,17 @@ class Controller(
             self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
             self.logger.error("Could not set invalid schedule")
 
+    def set_scheduler_settings(self, remote_name:str, settings:dict):
+        self.logger.info("[from '"+remote_name+"'] Received new scheduler settings")
+        if 'manual_mode_reset_event' in settings:
+            err:CfgError = self.configuration.set_scheduler_manual_mode_reset_event(settings['manual_mode_reset_event'])
+            if not err:
+                self.remote_control.on_server_response(remote_name, 'success')
+                # something changed in scheduler data
+                self.scheduler.set_manual_mode_reset_event(settings['manual_mode_reset_event'])
+                self.remote_control.on_scheduler(self.configuration.get_scheduler())
+
+
     def set_temperature_sets(self, remote_name:str, temperature_sets:list[dict], schedule_name:str):
         self.logger.info("[from '"+remote_name+"'] Received new temperature sets")
         err:CfgError = self.configuration.set_temperature_sets(temperature_sets, schedule_name)
@@ -472,9 +487,11 @@ class Controller(
     ################################################################################
 
     def __init_logging(self):
-        config_file = open(os.path.join(self.config_path, self.config_files_prefix+'logging.yaml'), 'r')
-        logging_config = yaml.load(config_file,Loader=yaml.Loader)
-        logging.config.dictConfig(logging_config)
+        config_file_path = os.path.join(self.config_path, self.config_files_prefix+'logging.yaml')
+        if os.path.exists(config_file_path):
+            config_file = open(config_file_path, 'r')
+            logging_config = yaml.load(config_file,Loader=yaml.Loader)
+            logging.config.dictConfig(logging_config)
         self.logger = logging.getLogger('hcs.controller')
 
     # return True if all clients used by devices are connected

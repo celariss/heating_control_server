@@ -1,0 +1,41 @@
+version: 6
+
+settings:
+  message_repeater:
+    repeat_delay_sec: 120
+  scheduler:
+    init_delay_sec: 20
+
+protocols:
+  mqtt:
+  - name:   "mqtt_ha"
+    user:   "mqtt"
+    pwd:    "mypasswd"
+    broker: "127.0.0.1"
+    port:   1884
+    ssl:    false
+    clean_session: true
+    on_ha_status_topic: homeassistant/status
+
+devices:
+
+remote_control:
+  - name: flutter
+    protocol:
+      name: mqtt_ha
+      params:
+        receive_topic: heatingcontrol/command
+        send_command_response_topic: heatingcontrol/on_cmd_response
+        send_devices_topic: heatingcontrol/serverdata/on_devices
+        send_entities_topic: heatingcontrol/serverdata/on_entities
+        send_scheduler_topic: heatingcontrol/serverdata/on_scheduler
+        send_device_states_base_topic: heatingcontrol/serverdata/devices
+        send_is_alive_topic: heatingcontrol/serverdata/is_alive
+        is_alive_period: 5
+
+scheduler:
+  settings:
+    manual_mode_reset_event: 25
+  active_schedule: null
+  
+  schedules:

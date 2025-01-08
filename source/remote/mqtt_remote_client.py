@@ -2,16 +2,13 @@ __author__ = "Jérôme Cuq"
 
 import copy
 import datetime
-import time
-import threading
 import common
 import json
 import logging
-import re
 import paho.mqtt.client as mqtt
-from configuration import Configuration
 from device import Device
 from protocols.mqttclient import MQTTClient
+from thread_base import ThreadBase
 from .remote_client_base import RemoteClientBase
 from .remote_control_callbacks import RemoteControlCallbacks
 from errors import *
@@ -56,20 +53,13 @@ class MQTTRemoteClient(RemoteClientBase):
         self.is_alive_period = common.toInt(params['is_alive_period'], self.logger, default=-1)
         if self.is_alive_period == -1:
             raise CfgError(ECfgError.BAD_VALUE, '/remote_control/protocol/params', 'is_alive_period', {'value': params['is_alive_period']}, self.logger)
-        self.is_alive_thread_lock: threading.Lock = threading.Lock()
-        self.is_alive_thread: threading.Thread = None
-        self.is_alive_thread_must_stop: bool = False
+        self.is_alive_thread: ThreadBase = ThreadBase()
 
     def start(self):
-        if not self.is_alive_thread:
-            self.is_alive_thread: threading.Thread = threading.Thread(target=self.__is_alive_thread)
-            self.is_alive_thread_must_stop = False
-            self.is_alive_thread.start()
+        self.is_alive_thread.start(self.__is_alive_thread)
 
     def stop(self):
-        if self.is_alive_thread:
-            self.is_alive_thread_must_stop = True
-            self.is_alive_thread.join()
+        self.is_alive_thread.stop()
 
     def get_name(self) -> str:
         return self.remote_name
@@ -201,6 +191,8 @@ class MQTTRemoteClient(RemoteClientBase):
                         self.callbacks.delete_device(self.remote_name, params['name'])
                     elif command == 'set_schedule':
                         self.callbacks.set_schedule(self.remote_name, params)
+                    elif command == 'set_scheduler_settings':
+                        self.callbacks.set_scheduler_settings(self.remote_name, params)
                     elif command == 'set_tempsets':
                         self.callbacks.set_temperature_sets(
                             self.remote_name, params['temperature_sets'], params['schedule_name'])
@@ -259,7 +251,7 @@ class MQTTRemoteClient(RemoteClientBase):
     def on_device_max_temperature(self, device:Device, value:float):
         self.send_device_data(device)
 
-    def on_device_setpoint(self, device:Device, value: float):
+    def on_device_setpoint(self, device:Device):
         self.send_device_data(device)
 
     def on_server_response(self, status: str, error: dict = None):
@@ -272,11 +264,7 @@ class MQTTRemoteClient(RemoteClientBase):
 
     # Thread that sends is alive ping
     def __is_alive_thread(self):
-        while threading.currentThread().is_alive():
-            time.sleep(self.is_alive_period)
-            with self.is_alive_thread_lock:
-                    if self.is_alive_thread_must_stop:
-                        # End current thread
-                        return
-                    
+        self.logger.info('mqtt "server is alive" thread started')
+        while self.is_alive_thread.wait(self.is_alive_period):
             self.on_server_alive(True)
+        self.logger.info('mqtt "server is alive" thread has stopped')

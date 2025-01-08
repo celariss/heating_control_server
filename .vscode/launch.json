@@ -6,7 +6,7 @@
     "configurations": [    
         {
             "name": "Python : fichier actif",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "args": [],
@@ -15,11 +15,20 @@
         },
         {
             "name": "Python : HA_integration",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "cwd": "HA_integration",
             "args": ["-p", "install.ini"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Debug Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "purpose": ["debug-test"],
             "console": "integratedTerminal",
             "justMyCode": true
         }

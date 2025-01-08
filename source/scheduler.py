@@ -2,20 +2,27 @@ __author__      = "Jérôme Cuq"
 
 import logging
 import datetime
-import threading
-import time
-from configuration import Configuration
 from device import Device
+from thread_base import ThreadBase
 
 class SchedulerCallbacks:
     # setpoints :
-    #  - Each key is a device name, each value a temperature for setpoint
-    #  - a None value means that the device has no scheduled setpoint
-    def apply_devices_setpoints(self, setpoints: dict[str,float]):
+    #  - Each key is a device name, each value a couple (setpoint, isManual) for value
+    #  - a (None, False) value means that the device has no scheduled setpoint
+    #  - a (None, True) means that the device is in manual mode (out of schedule)
+    #  - ALL known devices must have a defined or None setpoint
+    def apply_devices_setpoints(self, setpoints: dict[str,tuple[float,bool]]):
         pass
 
 class Scheduler:
-    def __init__(self, config_scheduler:dict, callbacks:SchedulerCallbacks, devices:list[str], init_delay_sec:int, manual_mode_reset_event:str):
+    def __init__(self,
+                 config_scheduler:dict,
+                 callbacks:SchedulerCallbacks,
+                 devices:dict[str,Device],
+                 init_delay_sec:int,
+                 manual_mode_reset_event,
+                 thread_wait_time:float = None):
+        
         self.logger = logging.getLogger('hcs.scheduler')
         self.logger.info('Starting scheduler')
         self.config_scheduler = config_scheduler
@@ -25,19 +32,16 @@ class Scheduler:
         self.current_setpoints: dict[str,tuple[float, datetime.datetime]] = {}
         self.active_schedule_changed = False
         self.init_delay:int = init_delay_sec
-        self.manual_mode_reset_event:str = manual_mode_reset_event
+        self.manual_mode_reset_event = manual_mode_reset_event
 
-        self.active_schedule_thread_lock: threading.Lock = threading.Lock()
-        self.active_schedule_thread: threading.Thread = threading.Thread(target=self.__follow_active_schedule_thread)
-        self.active_schedule_thread_must_stop: bool = False
-        self.active_schedule_thread.start()
+        # thread_wait_time is used for testing purpose
+        self.thread_wait_time = thread_wait_time
+        self.active_schedule_thread: ThreadBase = ThreadBase()
+        self.active_schedule_thread.start(self.__follow_active_schedule_thread)
 
     def stop(self):
-        self.logger.info('Stopping scheduler')
-        self.active_schedule_thread_must_stop = True
-        self.active_schedule_thread.join()
-        self.logger.info('Scheduler has stopped')
-
+        self.active_schedule_thread.stop()
+        
     def set_schedule(self, schedule:dict):
         alias = schedule['alias']
         schedule_idx = self.__get_idx_in_schedules(alias)
@@ -45,6 +49,9 @@ class Scheduler:
             self.config_scheduler['schedules'][schedule_idx] = schedule
             if alias == self.config_scheduler['active_schedule']:
                 self.on_active_schedule_changed()
+
+    def set_manual_mode_reset_event(self, manual_mode_reset_event):
+        self.manual_mode_reset_event = manual_mode_reset_event
     
     def __get_idx_in_schedules(self, schedule_alias:str):
         idx = 0
@@ -54,12 +61,16 @@ class Scheduler:
         return -1
 
     def on_active_schedule_changed(self):
-        with self.active_schedule_thread_lock:
+        # reset manual mode for all devices
+        for devname in self.__get_devices_in_manual_mode():
+            self.logger.info("Device['"+devname+"'] is going out of manual setpoint mode")
+            self.devices[devname].exitManualMode()
+        with self.active_schedule_thread.lock:
             # notify the thread that active schedule has changed
             self.active_schedule_changed = True
 
     def on_devices(self, devices:dict[str,Device], scheduler:dict):
-        with self.active_schedule_thread_lock:
+        with self.active_schedule_thread.lock:
             self.devices = devices
             self.config_scheduler = scheduler
             # Update the current setpoints so that the schedule thread
@@ -83,25 +94,32 @@ class Scheduler:
 
     def set_scheduler(self, scheduler:dict):
         self.config_scheduler = scheduler
-        with self.active_schedule_thread_lock:
+        with self.active_schedule_thread.lock:
             # notify the thread that active schedule may has changed
             self.active_schedule_changed = True
+
+    def on_device_setpoint(self, device:Device):
+        # manual mode handling
+        if device.hasScheduledSetpoint() and device.setpoint != device.scheduled_setpoint:
+            self.logger.info("Device['"+device.name+"'] is going to manual setpoint mode")
+            device.enterManualMode()
 
     # Called by the controller when new devices are connected
     # This method must change the setpoint of device present in current schedule
     def on_devices_connect(self, new_visible_devices: list[str]):
-        with self.active_schedule_thread_lock:
+        with self.active_schedule_thread.lock:
             new_setpoints: dict[str,float] = {}
             for device_name in new_visible_devices:
                 if device_name in self.current_setpoints:
                     new_setpoints[device_name] = self.current_setpoints[device_name][0]
             self.callbacks.apply_devices_setpoints(new_setpoints)
 
-    # get the setpoints of all devices for given date/time
-    # return (status, active_schedule_alias, dict of setpoints)
+    # get the setpoints of devices for given date/time
+    # return (status, active_schedule_alias, dict of [device_name, setpoint)
     #         where each setpoint is actually a tuple (setpoint, current_timeslot_start_time)
     # note : in case of no active schedule, the method returns (True, None, {})
-    def get_setpoints(self, date_:datetime.datetime) ->tuple[bool, str, dict[str,tuple[float,datetime.datetime]]]:
+    # note : only devices that have actual setpoints are present in the result
+    def get_setpoints(self, date_:datetime.datetime) -> tuple[bool, str, dict[str,tuple[float,datetime.datetime]]]:
         if 'active_schedule' in self.config_scheduler:
             active_alias:str = self.config_scheduler['active_schedule']
             if active_alias:
@@ -248,6 +266,14 @@ class Scheduler:
     # PRIVATE METHODS
     ################################################################################
 
+    def __get_devices_in_manual_mode(self) -> dict[str, Device]:
+        result:dict[str, Device] = {}
+        for name in self.devices:
+            device = self.devices[name]
+            if device.isInManualMode():
+                result[name] = device
+        return result
+    
     def __get_setpoint(self, schedule, device_name, timeslot) -> float:
         temp_sets = []
         if 'temperature_sets' in schedule:
@@ -259,46 +285,109 @@ class Scheduler:
         temp_set_alias = timeslot['temperature_set']
         return Scheduler.__get_setpoint_from_tempset(device_name, temp_sets, temp_set_alias)
 
-    # Thread that trigger the change of devices setpoint
+    # Thread that triggers the change of devices setpoint
     def __follow_active_schedule_thread(self):
-        with self.active_schedule_thread_lock:
+        self.logger.info('Scheduler thread started')
+
+        with self.active_schedule_thread.lock:
             self.current_setpoints = {}
 
-        time.sleep(self.init_delay)
-
-        while threading.currentThread().is_alive():
-            result = self.get_setpoints(datetime.datetime.now())
-            if result[0]:
-                with self.active_schedule_thread_lock:
-                    diff = Scheduler.__get_setpoints_diff(self.current_setpoints, result[2])
-                    if len(diff)>0:
-                        self.current_setpoints = result[2]
-                        self.logger.debug("New setpoints to apply for schedule '"+str(result[1])+"': "+str(self.current_setpoints))
-                        # We need to add devices that are not in schedule with a None setpoint
-                        #all_setpoints:dict = self.current_setpoints.copy()
-                        all_setpoints:dict = {}
-                        for devname in self.current_setpoints:
-                            item = self.current_setpoints[devname]
-                            all_setpoints[devname] = item[0]
-                        for device in self.devices:
-                            if not device in all_setpoints:
-                                all_setpoints[device] = None
-                        self.callbacks.apply_devices_setpoints(all_setpoints)
-
-            # Waiting next minute 
-            current_minutes = datetime.datetime.now().time().minute
-            wait_minutes = (current_minutes+1) % 60
-            while wait_minutes>current_minutes:
-                time.sleep(2)
-                with self.active_schedule_thread_lock:
-                    if self.active_schedule_thread_must_stop:
-                        # End current thread
-                        return
-                    # let's see if current shedule has changed
-                    if self.active_schedule_changed:
-                        self.active_schedule_changed = False
-                        current_minutes = wait_minutes
-                    else:
-                        current_minutes = datetime.datetime.now().time().minute
-
+        # Waiting as requested by init_delay
+        self.logger.info('Scheduler thread pausing for '+str(self.init_delay)+' sec (init delay)')
+        isAlive:bool = self.active_schedule_thread.wait(self.init_delay)
         
+        result:tuple[bool, str, dict[str,tuple[float,datetime.datetime]]] = None
+        while isAlive:
+            result = self.get_setpoints(datetime.datetime.now())
+            new_setpoints: dict[str,tuple[float,datetime.datetime]] = result[2]
+            if result[0]:
+                all_setpoints:dict = None
+                with self.active_schedule_thread.lock:
+                    diffs:dict[str,tuple[float,str]] = None
+                    bDiff:bool = False
+                    diffs = Scheduler.__get_setpoints_diff(self.current_setpoints, result[2])
+                    
+                    # Handling of devices manual mode
+                    devices_in_manual_mode:dict[str, Device] = self.__get_devices_in_manual_mode()
+                    manual_time = None
+                    if type(self.manual_mode_reset_event) is int:
+                        manual_time = datetime.timedelta(hours = self.manual_mode_reset_event)
+                    for name in self.devices:
+                        if name in devices_in_manual_mode:
+                            device = self.devices[name]
+                            switch2auto = False
+                            # 1) The manual mode reset setting in set to a integer (nb of hours)
+                            if type(self.manual_mode_reset_event) is int:
+                                if datetime.datetime.now()-device.manual_setpoint_date >= manual_time:
+                                    switch2auto = True
+                            # 2) The manual mode reset setting in set to a 'timeslot_change'
+                            elif self.manual_mode_reset_event == 'timeslot_change':
+                                if (name in self.current_setpoints) != (name in new_setpoints):
+                                    switch2auto = True
+                                elif (name in self.current_setpoints) and (name in new_setpoints):
+                                    if self.current_setpoints[name][1] != new_setpoints[name][1]:
+                                        switch2auto = True
+                            # 3) The manual mode reset setting in set to a 'setpoint_change'
+                            elif self.manual_mode_reset_event == 'setpoint_change':
+                                if (not name in self.current_setpoints) and (name in new_setpoints):
+                                    switch2auto = True
+                                elif (name in self.current_setpoints) and (name in new_setpoints):
+                                    if self.current_setpoints[name][0] != new_setpoints[name][0]:
+                                        switch2auto = True
+                            # 4) in all cases, if the current setpoint is identical to the scheduled,
+                            #    or if the device is not in the current shedule, it can go out of manual mode
+                            if (not device.hasScheduledSetpoint()) or (device.scheduled_setpoint == device.setpoint):
+                                switch2auto = True
+                            if switch2auto:
+                                # This device must go back to scheduled setpoint, if any
+                                self.logger.info("Device['"+device.name+"'] is going out of manual setpoint mode")
+                                device.exitManualMode()
+                                bDiff = True
+                                devices_in_manual_mode.pop(name)
+                            else:
+                                # This device must NOT go back to scheduled setpoint
+                                if name in diffs: diffs.pop(name)
+
+                    
+                    # Something has changed since last call ?
+                    if len(diffs)>0 or bDiff:
+                        self.current_setpoints = new_setpoints
+                        self.logger.debug("New setpoints to apply for schedule '"+str(result[1])+"': "+str(self.current_setpoints))
+                        
+                        all_setpoints = {}
+                        # We must comply to the callbacks.apply_devices_setpoints prototype :
+                        #   1) We add devices that have setpoints in current schedule
+                        for devname in self.current_setpoints:
+                            if not devname in devices_in_manual_mode:
+                                item = self.current_setpoints[devname]
+                                all_setpoints[devname] = (item[0], False)
+                        #   2) We add devices that are in manual mode
+                        for devname in devices_in_manual_mode:
+                            all_setpoints[devname] = (None, True)
+                        #   3) We add devices that are not in schedule with a None setpoint
+                        for devname in self.devices:
+                            if not devname in all_setpoints:
+                                all_setpoints[devname] = (None, False)
+                # At last, we can call the callback !
+                if all_setpoints:
+                    self.callbacks.apply_devices_setpoints(all_setpoints)
+
+            if self.thread_wait_time:
+                # Used for testing purpose
+                isAlive = self.active_schedule_thread.wait(self.thread_wait_time)
+            else:
+                # Waiting next minute
+                waitNextMinuteDelay:int = 60 - datetime.datetime.now().time().second
+                delay:int = 0
+                while isAlive and waitNextMinuteDelay>delay:
+                    isAlive = self.active_schedule_thread.wait(2)
+                    delay = delay + 2
+                    if isAlive:
+                        with self.active_schedule_thread.lock:
+                            # let's see if current shedule has changed
+                            if self.active_schedule_changed:
+                                self.active_schedule_changed = False
+                                delay = waitNextMinuteDelay
+                            
+        self.logger.info('Scheduler thread has stopped')
+                    

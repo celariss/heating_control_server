@@ -8,17 +8,6 @@ settings:
   scheduler:
     # delay, after program has started, before the scheduler is initiated
     init_delay_sec: 20
-    # (OPTIONAL) in case a device receives a setpoint different from current scheduled value,
-    # the manual mode reset event indicates how long, or on what event, the scheduler must wait before
-    # setting back the setpoint to its scheduled value
-    #
-    # This field may contain (defaults to "setpoint_change"):
-    # - An integer value in range [0-24] : this is a duration (number of hours)
-    # - "timeslot_change" : this is a date (when current timeslot in active schedule for this device ends,
-    #                                even if the setpoint is not changing on next timeslot)
-    # - "setpoint_change" : this is a date (when current scheduled setpoint actually changes for this device)
-    # - "schedule_change" : this is a date (when a scheduled setpoint of ANY device changes)
-    manual_mode_reset_event: setpoint_change
   # (OPTIONAL) detect any new device published on the MQTT broker and
   # add it to the "devices" section of the configuration file
   auto_discovery:
@@ -68,7 +57,7 @@ devices:
       ...
 
 # The following section is the interface definition between the server and the client app
-# DO NOT CHANGE
+# DO NOT CHANGE FLUTTER ENTRY
 remote_control:
   - name: flutter
     protocol:
@@ -98,6 +87,9 @@ remote_control:
         #           -> cmdparams = {"old_name":str, "new_name":str}
         #       "set_schedule" : change schedule content
         #           -> cmdparams = schedule (see schedule format later in this file)
+        #       "set_scheduler_settings" : change scheduler settings
+        #           -> cmdparams = {'manual_mode_reset_event':str/int}
+        #              See scheduler.Settings section latter in this file
         #       "set_schedules_order" : change the order of schedules declaration
         #           -> cmdparams = ["schedule_name1", "schedule_name2", ...]
         #       "set_tempset_name" : change the name/alias of a temperature set
@@ -161,6 +153,19 @@ remote_control:
         is_alive_period: 5
 
 scheduler:
+  # (OPTIONAL)
+  settings:
+    # (OPTIONAL) in case a device receives a setpoint different than current scheduled value,
+    # the manual mode reset event indicates how long, or on what event, the scheduler must wait before
+    # setting back the setpoint to its scheduled value
+    #
+    # This field may contain (defaults to "setpoint_change"):
+    # - An integer value in range [1-24] : number of hours before going back to scheduled value
+    # - "timeslot_change" : when current timeslot in active schedule for this device ends,
+    #                       even if the setpoint is not changing on next timeslot
+    # - "setpoint_change" : when current scheduled setpoint actually changes for this device
+    manual_mode_reset_event: setpoint_change
+  
   # alias of the current active schedule
   # note : may be set to null if no active schedule
   active_schedule: "Default"
@@ -197,7 +202,6 @@ scheduler:
         # list of dates that may be :
         #  - any week day in ['1', ..., '7']
         #    with 1=Monday, 2=Tuesday, ..., 7=Sunday
-        # TBD : add any date in calendar (including date ranges et repeat parameter)
       - dates: ['1','2','3','4','5']
         # either <timeslots> or <timeslots_A> AND <timeslots_B> must be defined :
         # note : define <timeslots_A> AND <timeslots_B> for distinguishing between even and odd weeks

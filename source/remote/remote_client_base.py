@@ -60,7 +60,7 @@ class RemoteClientBase:
     def on_device_max_temperature(self, device:Device, value:float):
         pass
 
-    def on_device_setpoint(self, device:Device, value:float):
+    def on_device_setpoint(self, device:Device):
         pass
 
     def on_scheduler(self, scheduler_config:dict):

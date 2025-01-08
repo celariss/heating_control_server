@@ -18,6 +18,11 @@ def get_missing_mandatories(dico:dict, keys_list:list) -> list:
             result.append(key)
     return result
 
+def is_int_in_range(value:int, min:int=None, max:int=None) -> bool:
+    if (min != None) and (min>value): return False
+    if (max != None) and (max<value): return False
+    return True
+
 def toFloat(element: any, logger:logging.Logger, error_prefix:str='', default:any=None) -> float:
     if not element is None:
         if isinstance(element,float):
@@ -29,13 +34,17 @@ def toFloat(element: any, logger:logging.Logger, error_prefix:str='', default:an
     logger.error(error_prefix+"a float was expected, got '"+str(element)+"'")
     return default
 
-def toInt(element: any, logger:logging.Logger, error_prefix:str='', default:any=None) -> int:
+def toInt(element: any, logger:logging.Logger, error_prefix:str='', default:any=None, min:int=None, max:int=None) -> int:
+    result:int = None
     if not element is None:
         if isinstance(element,int):
-            return element
+            result = element
         try:
-            return int(element)
+            result = int(element)
         except ValueError:
             pass
-    logger.error(error_prefix+"an integer was expected, got '"+str(element)+"'")
+    if result!=None:
+        if is_int_in_range(result, min, max):
+            return result
+    logger.error(error_prefix+"an integer in range ["+str(min)+","+str(max)+"] was expected, got '"+str(element)+"'")
     return default

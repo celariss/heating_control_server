@@ -17,9 +17,9 @@ settings:
 protocols:
   mqtt:
   - name:   "mqtt_ha"
-    user:   "mqtt"
-    pwd:    "mypassord"
-    broker: "127.0.0.1" # if the heating server is installed as an home assistant integration
+    user:   "mqtt"       #<-- put your mqtt user name here
+    pwd:    "mypasswd"   #<-- put your mqtt password here
+    broker: "127.0.0.1"  #<-- mqtt broker adress :  127.0.0.1 if the heating server is installed as an home assistant integration
     port:   1884
     ssl:    false
     clean_session: true

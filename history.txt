@@ -1,3 +1,10 @@
+v1.1.0 (08/01/2025) :
+	- Changes in configuration file format :
+		. moved 'manual_mode_reset_event' field to '/Scheduler/settings/' so that any remote client can read its value
+		. Added new 'set_scheduler_settings' command in remote_control so that any remote client can change settings
+	- 'manual_mode_reset_event' setting is now handled by the scheduler
+	- Added some tests using pytest
+
 v1.0.0 (11/12/2023) :
 	- Changes in configuration file format :
 		. added "add_device", "delete_device", "set_device_entity" to remote api
