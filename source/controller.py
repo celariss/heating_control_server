@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -433,6 +433,18 @@ class Controller(
         else:
             self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
             self.logger.error("Could not change schedule name")
+
+    def set_schedule_properties(self, remote_name:str, name:str, new_name:str, parent:str):
+        self.logger.info("[from '"+remote_name+"'] Received properties change for a schedule : '"+name+"' -> '"+new_name+"', '"+parent+"'")
+        err:CfgError = self.configuration.change_schedule_properties(name, new_name, parent)
+        if not err:
+            self.remote_control.on_server_response(remote_name, 'success')
+            # something changed in scheduler data
+            self.scheduler.set_scheduler(self.configuration.get_scheduler())
+            self.remote_control.on_scheduler(self.configuration.get_scheduler())
+        else:
+            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.logger.error("Could not change schedule properties")
 
     def delete_schedule(self, remote_name:str, schedule_name:str):
         self.logger.info("[from '"+remote_name+"'] Received a deletion request for schedule : '"+schedule_name+"'")

@@ -278,6 +278,7 @@ class Configuration:
         self.__save()
         return None
 
+    # the given schedule may be a new or existing schedule
     def set_schedule(self, schedule:dict) -> CfgError:
         cfgErr = self.__check_mandatories(schedule, ['alias', 'schedule_items'], '/scheduler/schedules', Configuration.get(schedule, 'alias', None))
         if cfgErr: return cfgErr
@@ -330,7 +331,8 @@ class Configuration:
         self.__save()
         return None
 
-    def set_temperature_sets(self, temperature_sets:list[dict], schedule_name:str) -> CfgError:
+    # Give a empty schedule_name to target global temperature sets
+    def set_temperature_sets(self, temperature_sets:list[dict], schedule_name:str = '') -> CfgError:
         if schedule_name == '':
             return self._set_temperature_sets(temperature_sets, self.configdata['scheduler'])
         else:
@@ -351,6 +353,28 @@ class Configuration:
         else:
             return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/scheduler/schedules', None, {'key':new_name}, self.logger)
         return None
+    
+    def change_schedule_properties(self, name:str, new_name:str, parent:str) -> CfgError:
+        cfgErr = None
+        if name != new_name:
+            cfgErr = self.change_schedule_name(name, new_name)
+        if not cfgErr:
+            schedule:dict = self.get_schedule(new_name)
+            if not schedule:
+                return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/schedules', None, {'reference':new_name}, self.logger)
+            if 'parent_schedule' in schedule:
+                save = schedule['parent_schedule']
+            else:
+                save = None
+            set_dico_value(schedule, 'parent_schedule', parent)
+            cfgErr = self.__verify_scheduler_config()
+            if not cfgErr:
+                # there is no error detected
+                self.__save()
+            else:
+                set_dico_value(schedule, 'parent_schedule', save)
+
+        return cfgErr
 
     def delete_schedule(self, schedule_name:str) -> CfgError:
         if Configuration.__delete_schedule(self.get_schedules(), schedule_name)==False:
@@ -491,6 +515,12 @@ class Configuration:
             if cfgErr: return cfgErr
             if len(schedule['schedule_items'])==0:
                 return CfgError(ECfgError.EMPTY_LIST, node_path, schedule['alias'], {'child_node':'schedule_items'}, self.logger)
+            
+            if 'parent_schedule' in schedule:
+                parent_schedule = self.get_schedule(schedule['parent_schedule'])
+                if not parent_schedule:
+                    return CfgError(ECfgError.BAD_REFERENCE, node_path+"['"+schedule['alias']+"']", 'parent_schedule', {'reference':schedule['parent_schedule']}, self.logger)
+            
             idx = 0
             for schedule_item in schedule['schedule_items']:
                 cfgErr = self.__verify_schedule_item(schedule_item, schedule, idx)
@@ -511,9 +541,20 @@ class Configuration:
                 if cfgErr: return cfgErr
                 temp_sets.extend(global_temp_sets)
                 for temp_set in temp_sets:
-                    aliases = self.__detect_circular_dependency(temp_sets, temp_set)
+                    aliases = self.__detect_tempset_circular_dependency(temp_sets, temp_set)
                     if aliases:
                         return CfgError(ECfgError.CIRCULAR_REF, node_path, None, {'aliases':aliases}, self.logger)
+                    
+        # Detecting circular dependencies in schedules inheritance
+        for schedule in schedules:
+            node_path:str = "/scheduler/schedules['"+schedule['alias']+"']"
+            schedule_names:list = [schedule['alias']]
+            while 'parent_schedule' in schedule :
+                schedule = self.get_schedule(schedule['parent_schedule'])
+                if schedule['alias'] in schedule_names:
+                    return CfgError(ECfgError.CIRCULAR_REF, node_path, None, {'aliases':schedule_names}, self.logger)
+                schedule_names.append(schedule['alias'])
+
         return None
 
     def __verify_schedule_item(self, schedule_item:dict, schedule:dict, idx:int) -> CfgError:
@@ -611,7 +652,7 @@ class Configuration:
                     dev_idx = dev_idx + 1
         return None
 
-    def __detect_circular_dependency(self, temp_sets, temp_set, previous_aliases = []) -> list:
+    def __detect_tempset_circular_dependency(self, temp_sets, temp_set, previous_aliases = []) -> list:
         # test for circular dependency in list of aliases
         tempset_alias = temp_set['alias']
         if tempset_alias in previous_aliases:
@@ -623,7 +664,7 @@ class Configuration:
             inherit_alias = temp_set['inherits']
             for set in temp_sets:
                 if set['alias']==inherit_alias:
-                    res = self.__detect_circular_dependency(temp_sets, set, previous_aliases)
+                    res = self.__detect_tempset_circular_dependency(temp_sets, set, previous_aliases)
                     if res: return res
         return None
 

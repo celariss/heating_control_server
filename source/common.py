@@ -48,3 +48,11 @@ def toInt(element: any, logger:logging.Logger, error_prefix:str='', default:any=
             return result
     logger.error(error_prefix+"an integer in range ["+str(min)+","+str(max)+"] was expected, got '"+str(element)+"'")
     return default
+
+# set the value of the key='name' item. If the value is null, the 'name' key is removed
+def set_dico_value(dico:dict, name:str, value, nullvalues:list = [None, '']):
+    if value in nullvalues:
+        if name in dico:
+            dico.pop(name)
+    else:
+        dico[name] = value

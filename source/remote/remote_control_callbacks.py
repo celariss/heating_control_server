@@ -1,13 +1,12 @@
 __author__      = "Jérôme Cuq"
 
 from device import Device
-from protocols.mqttclient import MQTTClient
 
 class RemoteControlCallbacks:
     def get_protocol_type_from_name(self, client_name: str) -> str:
         pass
 
-    def get_client_by_name(self,client_name)-> MQTTClient:
+    def get_client_by_name(self,client_name)-> object:
         pass
 
     def get_scheduler_config(self) -> dict:
@@ -41,6 +40,11 @@ class RemoteControlCallbacks:
         pass
 
     def set_schedule_name(self, remote_name:str, old_name:str, new_name:str):
+        pass
+
+    # Change properties of schedule named 'name'
+    # 'new_name' may or may not be different from 'name'
+    def set_schedule_properties(self, remote_name:str, name:str, new_name:str, parent:str):
         pass
 
     def delete_schedule(self, remote_name:str, schedule_name:str):

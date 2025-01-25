@@ -1,0 +1,924 @@
+devices:
+- Boiler:
+    entity: frisquet_boiler_pid_climate
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/frisquet_boiler_pid_climate
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- MyChild1:
+    entity: valve_danfoss_2_thermostat
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/valve_danfoss_2_thermostat
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- MyChild2:
+    entity: valve_danfoss_9
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/valve_danfoss_9
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- Parents:
+    entity: valve_danfoss_4_thermostat
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/valve_danfoss_4_thermostat
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- LivingRoom:
+    entity: danfoss_etrv0100_3_thermostat
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/danfoss_etrv0100_3_thermostat
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- Office:
+    entity: valve_danfoss_6_thermostat
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/valve_danfoss_6_thermostat
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- Kitchen:
+    entity: Kitchen
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/Kitchen
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- Shower:
+    entity: valve_sde_thermostat
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/valve_sde_thermostat
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- DiningRoom:
+    entity: valve_danfoss_5_thermostat
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/valve_danfoss_5_thermostat
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- Closet:
+    entity: valve_sonoff_2_thermostat
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/valve_sonoff_2_thermostat
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+protocols:
+  mqtt:
+  - broker: 127.0.0.1
+    clean_session: true
+    name: mqtt_ha
+    on_ha_status_topic: homeassistant/status
+    port: 1884
+    pwd: sdvlkzndm
+    ssl: false
+    user: mqtt
+remote_control:
+- name: flutter
+  protocol:
+    name: mqtt_ha
+    params:
+      is_alive_period: 5
+      receive_topic: heatingcontrol/command
+      send_command_response_topic: heatingcontrol/on_cmd_response
+      send_device_states_base_topic: heatingcontrol/serverdata/devices
+      send_devices_topic: heatingcontrol/serverdata/on_devices
+      send_entities_topic: heatingcontrol/serverdata/on_entities
+      send_is_alive_topic: heatingcontrol/serverdata/is_alive
+      send_scheduler_topic: heatingcontrol/serverdata/on_scheduler
+scheduler:
+  active_schedule: Normal
+  schedules:
+  - alias: Normal
+    schedule_items:
+    - devices:
+      - LivingRoom
+      - Boiler
+      - DiningRoom
+      - Kitchen
+      - MyChild1
+      timeslots_sets:
+      - dates:
+        - '1'
+        timeslots_A:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '14:20:00'
+          temperature_set: DayTime/Present
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+        timeslots_B:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '16:50:00'
+          temperature_set: DayTime/Present
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '2'
+        timeslots_A:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '16:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+        timeslots_B:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '15:40:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '3'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '12:10:00'
+          temperature_set: DayTime/Present
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '4'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '15:40:00'
+          temperature_set: DayTime/Present
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '5'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '16:40:00'
+          temperature_set: DayTime/Present
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 07:50:00
+          temperature_set: DayTime/Comfort
+        - start_time: '21:50:00'
+          temperature_set: Night
+    - devices:
+      - MyChild2
+      - Parents
+      - Closet
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '3'
+        - '4'
+        - '2'
+        - '5'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:00:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 07:50:00
+          temperature_set: DayTime/Comfort
+        - start_time: '21:40:00'
+          temperature_set: Night
+    - devices:
+      - Shower
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Evening
+        - start_time: 00:20:00
+          temperature_set: Night
+        - start_time: 06:30:00
+          temperature_set: WakingUp
+        - start_time: 08:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '18:20:00'
+          temperature_set: Evening
+      - dates:
+        - '7'
+        - '6'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Evening
+        - start_time: 00:20:00
+          temperature_set: Night
+        - start_time: 08:30:00
+          temperature_set: DayTime/Comfort
+        - start_time: '19:20:00'
+          temperature_set: Evening
+    - devices:
+      - Office
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Default
+  - alias: teleworking
+    parent_schedule: Normal
+    schedule_items:
+    - devices:
+      - Boiler
+      - LivingRoom
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '3'
+        - '4'
+        - '2'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/Present
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+    - devices:
+      - Office
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '4'
+        - '5'
+        - '2'
+        - '3'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 07:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '17:40:00'
+          temperature_set: Night
+  - alias: WithFamily
+    schedule_items:
+    - devices:
+      - MyChild1
+      - MyChild2
+      - LivingRoom
+      - Boiler
+      - Parents
+      - DiningRoom
+      - Closet
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 08:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '21:40:00'
+          temperature_set: Night
+    - devices:
+      - Shower
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 08:30:00
+          temperature_set: DayTime/Comfort
+        - start_time: '19:30:00'
+          temperature_set: Evening
+    - devices:
+      - Office
+      - Kitchen
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 08:00:00
+          temperature_set: DayTime/Present
+        - start_time: '21:40:00'
+          temperature_set: Night
+  - alias: MyChild1 at home
+    schedule_items:
+    - devices:
+      - MyChild1
+      timeslots_sets:
+      - dates:
+        - '3'
+        - '1'
+        - '2'
+        - '4'
+        - '5'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '7'
+        - '6'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 08:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '21:50:00'
+          temperature_set: Night
+    - devices:
+      - LivingRoom
+      - Boiler
+      - Kitchen
+      - DiningRoom
+      timeslots_sets:
+      - dates:
+        - '3'
+        - '1'
+        - '2'
+        - '4'
+        - '5'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/Present
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '7'
+        - '6'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 08:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '21:50:00'
+          temperature_set: Night
+    - devices:
+      - MyChild2
+      - Parents
+      - Closet
+      - Office
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '3'
+        - '4'
+        - '2'
+        - '5'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:00:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+      - dates:
+        - '7'
+        - '6'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 08:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '21:40:00'
+          temperature_set: Night
+    - devices:
+      - Shower
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:30:00
+          temperature_set: WakingUp
+        - start_time: 08:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '18:30:00'
+          temperature_set: Evening
+      - dates:
+        - '7'
+        - '6'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 09:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '19:30:00'
+          temperature_set: Evening
+  - alias: Holiday1
+    schedule_items:
+    - devices:
+      - Boiler
+      - LivingRoom
+      - Kitchen
+      - DiningRoom
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '3'
+        - '4'
+        - '2'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:00:00
+          temperature_set: DayTime/Comfort
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+    - devices:
+      - Office
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '4'
+        - '5'
+        - '2'
+        - '3'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 07:00:00
+          temperature_set: Default
+        - start_time: '17:40:00'
+          temperature_set: Night
+    - devices:
+      - Shower
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:30:00
+          temperature_set: WakingUp
+        - start_time: 08:00:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '18:30:00'
+          temperature_set: Evening
+    - devices:
+      - MyChild2
+      - MyChild1
+      - Parents
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '3'
+        - '4'
+        - '2'
+        - '5'
+        - '6'
+        - '7'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Night
+        - start_time: 06:20:00
+          temperature_set: WakingUp
+        - start_time: 07:10:00
+          temperature_set: DayTime/NotPresent
+        - start_time: '17:30:00'
+          temperature_set: Evening
+        - start_time: '21:30:00'
+          temperature_set: Night
+  - alias: Out
+    schedule_items:
+    - devices:
+      - MyChild2
+      - MyChild1
+      - Office
+      - Parents
+      - Kitchen
+      - Shower
+      - LivingRoom
+      - Boiler
+      - DiningRoom
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        - '3'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Out (for long)
+  - alias: Summer
+    schedule_items:
+    - devices:
+      - MyChild2
+      - MyChild1
+      - Office
+      - Parents
+      - Kitchen
+      - Shower
+      - LivingRoom
+      - Boiler
+      - DiningRoom
+      timeslots_sets:
+      - dates:
+        - '1'
+        - '2'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        - '3'
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: Frost-free
+  settings:
+    manual_mode_reset_event: setpoint_change
+  temperature_sets:
+  - GUI:
+      iconColor: '0xffd6d6d6'
+    alias: Default
+    devices:
+    - device_name: Parents
+      setpoint: 13.0
+    - device_name: Office
+      setpoint: 15.0
+    - device_name: Kitchen
+      setpoint: 16.0
+    - device_name: DiningRoom
+      setpoint: 16.0
+  - GUI:
+      iconColor: '0xffb2ebf2'
+    alias: Frost-free
+    devices:
+    - device_name: Office
+      setpoint: 30.0
+    - device_name: MyChild2
+      setpoint: 30.0
+    - device_name: MyChild1
+      setpoint: 30.0
+    - device_name: Parents
+      setpoint: 30.0
+    - device_name: Kitchen
+      setpoint: 30.0
+    - device_name: Shower
+      setpoint: 30.0
+    - device_name: LivingRoom
+      setpoint: 30.0
+    - device_name: Boiler
+      setpoint: 12.0
+    - device_name: DiningRoom
+      setpoint: 30.0
+    - device_name: Closet
+      setpoint: 30.0
+  - GUI:
+      iconColor: '0xff3949ab'
+    alias: Night
+    devices:
+    - device_name: MyChild2
+      setpoint: 18.5
+    - device_name: MyChild1
+      setpoint: 16.5
+    - device_name: LivingRoom
+      setpoint: 15.0
+    - device_name: Shower
+      setpoint: 14.0
+    - device_name: Boiler
+      setpoint: 16.0
+    - device_name: Office
+      setpoint: 15.0
+    - device_name: Kitchen
+      setpoint: 15.0
+    - device_name: Parents
+      setpoint: 14.0
+    - device_name: DiningRoom
+      setpoint: 15.0
+    - device_name: Closet
+      setpoint: 15.5
+  - GUI:
+      iconColor: '0xfffdd835'
+    alias: WakingUp
+    devices:
+    - device_name: MyChild2
+      setpoint: 19.0
+    - device_name: MyChild1
+      setpoint: 16.5
+    - device_name: Shower
+      setpoint: 18.5
+    - device_name: Boiler
+      setpoint: 17.5
+    - device_name: LivingRoom
+      setpoint: 15.0
+    - device_name: Kitchen
+      setpoint: 16.5
+    - device_name: Parents
+      setpoint: 16.0
+    - device_name: DiningRoom
+      setpoint: 16.5
+    - device_name: Closet
+      setpoint: 17.5
+  - GUI:
+      iconColor: '0xff64b5f6'
+    alias: DayTime/NotPresent
+    devices:
+    - device_name: MyChild2
+      setpoint: 16.0
+    - device_name: MyChild1
+      setpoint: 14.5
+    - device_name: Shower
+      setpoint: 15.0
+    - device_name: Boiler
+      setpoint: 15.5
+    - device_name: LivingRoom
+      setpoint: 15.0
+    - device_name: Parents
+      setpoint: 14.0
+    - device_name: DiningRoom
+      setpoint: 15.0
+    - device_name: Kitchen
+      setpoint: 15.0
+    - device_name: Closet
+      setpoint: 16.0
+    - device_name: Office
+      setpoint: 15.0
+  - GUI:
+      iconColor: '0xfff57c00'
+    alias: DayTime/Present
+    devices:
+    - device_name: Boiler
+      setpoint: 17.5
+    - device_name: LivingRoom
+      setpoint: 17.0
+    - device_name: Kitchen
+      setpoint: 17.0
+    - device_name: DiningRoom
+      setpoint: 17.0
+    - device_name: Office
+      setpoint: 16.0
+    - device_name: MyChild1
+      setpoint: 16.5
+  - GUI:
+      iconColor: '0xffe64a19'
+    alias: DayTime/Comfort
+    devices:
+    - device_name: MyChild2
+      setpoint: 18.5
+    - device_name: MyChild1
+      setpoint: 17.0
+    - device_name: LivingRoom
+      setpoint: 17.5
+    - device_name: Shower
+      setpoint: 16.5
+    - device_name: Boiler
+      setpoint: 17.5
+    - device_name: Office
+      setpoint: 17.0
+    - device_name: DiningRoom
+      setpoint: 17.5
+    - device_name: Kitchen
+      setpoint: 17.0
+    - device_name: Parents
+      setpoint: 16.0
+    - device_name: Closet
+      setpoint: 17.5
+  - GUI:
+      iconColor: '0xff4caf50'
+    alias: Evening
+    devices:
+    - device_name: MyChild2
+      setpoint: 20.0
+    - device_name: MyChild1
+      setpoint: 17.0
+    - device_name: LivingRoom
+      setpoint: 18.0
+    - device_name: Shower
+      setpoint: 18.5
+    - device_name: Boiler
+      setpoint: 17.5
+    - device_name: Kitchen
+      setpoint: 16.5
+    - device_name: Parents
+      setpoint: 16.0
+    - device_name: DiningRoom
+      setpoint: 16.5
+    - device_name: Closet
+      setpoint: 17.5
+  - GUI:
+      iconColor: '0xfffff176'
+    alias: Out (for long)
+    devices:
+    - device_name: Office
+      setpoint: 13.5
+    - device_name: MyChild2
+      setpoint: 13.5
+    - device_name: MyChild1
+      setpoint: 13.5
+    - device_name: Parents
+      setpoint: 13.5
+    - device_name: Kitchen
+      setpoint: 13.5
+    - device_name: Shower
+      setpoint: 13.5
+    - device_name: LivingRoom
+      setpoint: 13.5
+    - device_name: Boiler
+      setpoint: 13.5
+    - device_name: DiningRoom
+      setpoint: 13.5
+    - device_name: Closet
+      setpoint: 13.5
+settings:
+  auto_discovery:
+  - device_base_topic: homeassistant/climate
+    friendly_name_subtopic: friendly_name
+    last_updated_subtopic: last_updated
+    on_current_temp_subtopic: current_temperature
+    on_max_temp_subtopic: max_temp
+    on_min_temp_subtopic: min_temp
+    on_setpoint_subtopic: temperature
+    on_state_subtopic: state
+    protocol_name: mqtt_ha
+    set_setpoint_subtopic: new_setpoint
+  message_repeater:
+    repeat_delay_sec: 120
+  scheduler:
+    init_delay_sec: 20
+    manual_mode_reset_event: setpoint_change
+version: 6

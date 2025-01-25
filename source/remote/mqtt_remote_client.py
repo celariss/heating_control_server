@@ -171,46 +171,67 @@ class MQTTRemoteClient(RemoteClientBase):
 
                 elif message.topic == self.receive_topic:
                     data = json.loads(message.payload)
-                    command = data['command']
-                    params = data['params']
-                    if command == 'set_setpoint':
-                        floatData = common.toFloat(
-                            params['setpoint'], self.logger, "on_client_message(): Received invalid value on '"+message.topic+"' : ")
-                        if floatData:
-                            self.callbacks.set_device_parameter(
-                                self.remote_name, params['device_name'], 'setpoint', floatData)
-                    elif command == 'set_devices_order':
-                        self.callbacks.set_devices_order(self.remote_name, params)
-                    elif command == 'set_device_name':
-                        self.callbacks.set_device_name(self.remote_name, params['old_name'], params['new_name'])
-                    elif command == 'add_device':
-                        self.callbacks.add_device(self.remote_name, params['name'], params['srventity'])
-                    elif command == 'set_device_entity':
-                        self.callbacks.set_device_entity(self.remote_name, params['name'], params['new_srventity'])
-                    elif command == 'delete_device':
-                        self.callbacks.delete_device(self.remote_name, params['name'])
-                    elif command == 'set_schedule':
-                        self.callbacks.set_schedule(self.remote_name, params)
-                    elif command == 'set_scheduler_settings':
-                        self.callbacks.set_scheduler_settings(self.remote_name, params)
-                    elif command == 'set_tempsets':
-                        self.callbacks.set_temperature_sets(
-                            self.remote_name, params['temperature_sets'], params['schedule_name'])
-                    elif command == 'set_tempset_name':
-                        self.callbacks.set_temperature_set_name(
-                            self.remote_name, params['old_name'], params['new_name'], params['schedule_name'])
-                    elif command == 'set_schedule_name':
-                        self.callbacks.set_schedule_name(self.remote_name, params['old_name'], params['new_name'])
-                    elif command == 'delete_schedule':
-                        self.callbacks.delete_schedule(
-                            self.remote_name, params['schedule_name'])
-                    elif command == 'set_active_schedule':
-                        self.callbacks.set_active_schedule(
-                            self.remote_name, params['schedule_name'])
-                    elif command == 'set_schedules_order':
-                        self.callbacks.set_schedules_order(self.remote_name, params)
-                    else:
-                        err = CfgError(ECfgError.BAD_VALUE, message.topic, None, {'value':"'command':"+command}, self.logger)
+                    err = self.__check_dico(self.receive_topic, data, ['command', 'params'])
+                    if not err:
+                        command = data['command']
+                        params = data['params']
+
+                        if command == 'set_setpoint' and not (err:=self.__check_dico(command, params, ['setpoint', 'device_name'])):
+                            floatData = common.toFloat(
+                                params['setpoint'], self.logger, "on_client_message(): Received invalid value on '"+message.topic+"' : ")
+                            if floatData:
+                                self.callbacks.set_device_parameter(
+                                    self.remote_name, params['device_name'], 'setpoint', floatData)
+                        
+                        elif command == 'set_devices_order' and not (err:=self.__check_type(command, params, list)):
+                            self.callbacks.set_devices_order(self.remote_name, params)
+                        
+                        elif command == 'set_device_name' and not (err:=self.__check_dico(command, params, ['old_name', 'new_name'])):
+                            self.callbacks.set_device_name(self.remote_name, params['old_name'], params['new_name'])
+                        
+                        elif command == 'add_device' and not (err:=self.__check_dico(command, params, ['name', 'srventity'])):
+                            self.callbacks.add_device(self.remote_name, params['name'], params['srventity'])
+                        
+                        elif command == 'set_device_entity' and not (err:=self.__check_dico(command, params, ['name', 'new_srventity'])):
+                            self.callbacks.set_device_entity(self.remote_name, params['name'], params['new_srventity'])
+                        
+                        elif command == 'delete_device' and not (err:=self.__check_dico(command, params, ['name'])):
+                            self.callbacks.delete_device(self.remote_name, params['name'])
+                        
+                        elif command == 'set_schedule' and not (err:=self.__check_type(command, params, dict)):
+                            self.callbacks.set_schedule(self.remote_name, params)
+                        
+                        elif command == 'set_scheduler_settings' and not (err:=self.__check_type(command, params, dict)):
+                            self.callbacks.set_scheduler_settings(self.remote_name, params)
+                        
+                        elif command == 'set_tempsets' and not (err:=self.__check_dico(command, params, ['temperature_sets', 'schedule_name'])):
+                            self.callbacks.set_temperature_sets(
+                                self.remote_name, params['temperature_sets'], params['schedule_name'])
+                        
+                        elif command == 'set_tempset_name' and not (err:=self.__check_dico(command, params, ['old_name', 'new_name', 'schedule_name'])):
+                            self.callbacks.set_temperature_set_name(
+                                self.remote_name, params['old_name'], params['new_name'], params['schedule_name'])
+                        
+                        elif command == 'set_schedule_name' and not (err:=self.__check_dico(command, params, ['old_name', 'new_name'])):
+                            self.callbacks.set_schedule_name(self.remote_name, params['old_name'], params['new_name'])
+                        
+                        elif command == 'set_schedule_properties' and not (err:=self.__check_dico(command, params, ['name', 'new_name', 'parent'])):
+                            self.callbacks.set_schedule_properties(self.remote_name, params['name'], params['new_name'], params['parent'])
+                        
+                        elif command == 'delete_schedule' and not (err:=self.__check_dico(command, params, ['schedule_name'])):
+                            self.callbacks.delete_schedule(self.remote_name, params['schedule_name'])
+                        
+                        elif command == 'set_active_schedule' and not (err:=self.__check_dico(command, params, ['schedule_name'])):
+                            self.callbacks.set_active_schedule(
+                                self.remote_name, params['schedule_name'])
+                        
+                        elif command == 'set_schedules_order' and not (err:=self.__check_type(command, params, list)):
+                            self.callbacks.set_schedules_order(self.remote_name, params)
+                        
+                        else:
+                            err = CfgError(ECfgError.BAD_VALUE, message.topic, None, {'value':"'command':"+command}, self.logger)
+                        
+                    if err:
                         self.on_server_response('failure', err.to_dict())
             except Exception as exc:
                 self.logger.error("on_client_message(): Exception handling received data on topic '" +
@@ -268,3 +289,20 @@ class MQTTRemoteClient(RemoteClientBase):
         while self.is_alive_thread.wait(self.is_alive_period):
             self.on_server_alive(True)
         self.logger.info('mqtt "server is alive" thread has stopped')
+
+    # Check that all keys in 'entries' are present in 'data'
+    # return None if no error
+    def __check_dico(self, topic, data:dict, entries:list) -> CfgError:
+        if err := self.__check_type(topic, data, dict):
+            return err
+        for entry in entries:
+            if not entry in data:
+                return CfgError(ECfgError.MISSING_VALUE, topic, None, {'value':entry}, self.logger)
+        return None
+    
+    # Check that type of 'data' is 'type'
+    # return None if no error
+    def __check_type(self, topic, data:object, type:type) -> CfgError:
+        if not isinstance(data, type):
+            return CfgError(ECfgError.BAD_VALUE, topic, None, {'value':str(data)}, self.logger)
+        return None

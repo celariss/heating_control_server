@@ -15,6 +15,7 @@ class SchedulerCallbacks:
         pass
 
 class Scheduler:
+    # manual_mode_reset_event : 'timeslot_change', 'setpoint_change' or an int
     def __init__(self,
                  config_scheduler:dict,
                  callbacks:SchedulerCallbacks,
@@ -33,6 +34,8 @@ class Scheduler:
         self.active_schedule_changed = False
         self.init_delay:int = init_delay_sec
         self.manual_mode_reset_event = manual_mode_reset_event
+        # for testing purpose : a test date replaces the actual date
+        self.test_date = None
 
         # thread_wait_time is used for testing purpose
         self.thread_wait_time = thread_wait_time
@@ -75,7 +78,7 @@ class Scheduler:
             self.config_scheduler = scheduler
             # Update the current setpoints so that the schedule thread
             # does not believe that setpoints have changed
-            result = self.get_setpoints(datetime.datetime.now())
+            result = self.get_setpoints(self.__get_current_date())
             if result[0]:
                 self.current_setpoints = result[2]
 
@@ -85,7 +88,7 @@ class Scheduler:
         if device_name in self.devices and device_name in self.current_setpoints:
             # Update the current setpoints so that the schedule thread
             # does not refresh an other device than device_name
-            result = self.get_setpoints(datetime.datetime.now())
+            result = self.get_setpoints(self.__get_current_date())
             if result[0]:
                 self.current_setpoints = result[2]
             # now we remove device_name to force the refresh
@@ -97,6 +100,10 @@ class Scheduler:
         with self.active_schedule_thread.lock:
             # notify the thread that active schedule may has changed
             self.active_schedule_changed = True
+
+    # for testing purpose : a test date replaces the actual date
+    def set_test_date(self, test_date:datetime = None):
+        self.test_date = test_date
 
     def on_device_setpoint(self, device:Device):
         # manual mode handling
@@ -123,26 +130,30 @@ class Scheduler:
         if 'active_schedule' in self.config_scheduler:
             active_alias:str = self.config_scheduler['active_schedule']
             if active_alias:
-                # We look for all schedules matching active alias
+                # We look for schedule matching active alias and then ass all its inheritance tree
                 schedules = []
-                if 'schedules' in self.config_scheduler:
-                    all_schedules = self.config_scheduler['schedules']
-                    for schedule in all_schedules:
-                        if schedule['alias'] == active_alias:
-                            schedules.append(schedule)
+                schedule:dict = self.__get_schedule(active_alias)
+                schedules.append(schedule)
+                while 'parent_schedule' in schedule:
+                    schedule = schedule['parent_schedule']
+                    schedules.append( self.__get_schedule(schedule) )
+
+                # Now we browse the collected schedules to get all setpoints.
+                # For each device, we look for the first setpoint in the inheritance tree
                 setpoints = {}
                 error = False
                 for schedule in schedules:
+                    alias = schedule['alias']
                     # We look for the time slot that applies to schedule at given time
                     timeslots = Scheduler.__find_timeslots(schedule, date_)
                     if not timeslots:
-                        self.logger.error("No time slot with current date (missing weekday ?) declared in schedule '"+active_alias+"'")
+                        self.logger.error("No time slot with current date (missing weekday ?) declared in schedule '"+alias+"'")
                         error = True
                     else:
                         log = ''
                         for timeslot in timeslots:
                             log = log + str(timeslot) + ", "
-                        self.logger.debug("schedule '"+active_alias+"' currently uses time slots '"+log)
+                        self.logger.debug("schedule '"+alias+"' currently uses time slots '"+log)
 
                         index = 0
                         for schedule_item in schedule['schedule_items']:
@@ -151,7 +162,7 @@ class Scheduler:
                             temp_set_alias = timeslot['temperature_set']
                             for device_name in schedule_item['devices']:
                                 setpoint:float = self.__get_setpoint(schedule, device_name, timeslot)
-                                if setpoint != None:
+                                if setpoint != None and not device_name in setpoints:
                                     setpoints[device_name] = (setpoint, timeslot['start_time'])
                                 #else:
                                 #    self.logger.error("device '"+device_name+"' is not declared in temperature set '"+temp_set_alias+"' in schedule '"+schedule['alias']+"'")
@@ -183,6 +194,7 @@ class Scheduler:
                     if res: return res
         return None
 
+    # return a list of timeslots. Each item of the list is the timeslot that applies to the corresponding schedule_item.
     # return None if no time slot applies to the given date for one or more devices in schedule
     def __find_timeslots(schedule, date_:datetime.datetime) -> list[dict]:
         result:list[dict] = []
@@ -266,6 +278,21 @@ class Scheduler:
     # PRIVATE METHODS
     ################################################################################
 
+    # For testing purpose, the current date can be hooked.
+    # The Scheduler never gets datetime.now() directly
+    def __get_current_date(self):
+        if self.test_date:
+            return self.test_date
+        return datetime.datetime.now()
+
+    def __get_schedule(self, alias:str) -> dict:
+        if 'schedules' in self.config_scheduler:
+            all_schedules = self.config_scheduler['schedules']
+            for schedule in all_schedules:
+                if schedule['alias'] == alias:
+                    return schedule
+        return None
+    
     def __get_devices_in_manual_mode(self) -> dict[str, Device]:
         result:dict[str, Device] = {}
         for name in self.devices:
@@ -298,7 +325,7 @@ class Scheduler:
         
         result:tuple[bool, str, dict[str,tuple[float,datetime.datetime]]] = None
         while isAlive:
-            result = self.get_setpoints(datetime.datetime.now())
+            result = self.get_setpoints(self.__get_current_date())
             new_setpoints: dict[str,tuple[float,datetime.datetime]] = result[2]
             if result[0]:
                 all_setpoints:dict = None
@@ -318,7 +345,7 @@ class Scheduler:
                             switch2auto = False
                             # 1) The manual mode reset setting in set to a integer (nb of hours)
                             if type(self.manual_mode_reset_event) is int:
-                                if datetime.datetime.now()-device.manual_setpoint_date >= manual_time:
+                                if self.__get_current_date()-device.manual_setpoint_date >= manual_time:
                                     switch2auto = True
                             # 2) The manual mode reset setting in set to a 'timeslot_change'
                             elif self.manual_mode_reset_event == 'timeslot_change':
@@ -377,7 +404,7 @@ class Scheduler:
                 isAlive = self.active_schedule_thread.wait(self.thread_wait_time)
             else:
                 # Waiting next minute
-                waitNextMinuteDelay:int = 60 - datetime.datetime.now().time().second
+                waitNextMinuteDelay:int = 60 - self.__get_current_date().time().second
                 delay:int = 0
                 while isAlive and waitNextMinuteDelay>delay:
                     isAlive = self.active_schedule_thread.wait(2)

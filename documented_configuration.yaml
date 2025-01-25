@@ -85,6 +85,8 @@ remote_control:
         #           -> cmdparams = {"schedule_name":str}
         #       "set_schedule_name" : change name/alias of schedule
         #           -> cmdparams = {"old_name":str, "new_name":str}
+        #       "set_schedule_properties" : change properties of schedule
+        #           -> cmdparams = {"name":str, "new_name":str, "parent":str}
         #       "set_schedule" : change schedule content
         #           -> cmdparams = schedule (see schedule format later in this file)
         #       "set_scheduler_settings" : change scheduler settings
@@ -188,12 +190,15 @@ scheduler:
       setpoint: 20.0
   
   # Each schedule is composed of sub-schedules, or schedule items
-  # Each schedule item defines timeslots with setpoints for a group of devices.
+  # Each schedule item defines timeslots with setpoints for a set of devices.
   schedules:
   - alias: "Default"
     # (OPTIONAL) local temperature sets
     temperature_sets:
       ... # same format than global temperature sets
+    # (OPTIONAL) Schedule to inherit from
+    parent_schedule: "schedule#1"
+    # List of items in schedule : each item is "sub-schedule" for a set of devices 
     schedule_items:
       # list of devices that take part of this schedule
     - devices: ["Room #1", "Room #2"]

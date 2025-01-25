@@ -85,7 +85,7 @@ class TestSchedulerManualMode1:
                            {'start_time':datetime.time.fromisoformat('00:00:00'),
                             'temperature_set':'TSet1'}
                        ]}
-                  ]}]}) 
+                  ]}]})
         
         # Create devices from config_devices
         for devname in config_devices:

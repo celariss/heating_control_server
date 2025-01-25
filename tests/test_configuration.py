@@ -1,3 +1,4 @@
+import datetime
 import os
 import pytest
 
@@ -30,6 +31,33 @@ class TestConfiguration:
         config:Configuration = Configuration(config_path, '')
         assert os.path.exists(path)
         os.remove(path)
+
+    def test_schedule_parent(self):
+        # Preparing a configuration to test 'parent' management
+        config:Configuration = Configuration(config_path, 'minimal_', auto_save=False)
+        config_scheduler = config.get_scheduler()
+        excinfo = config.add_device('Dev1', '', '', {})
+        assert not excinfo
+        excinfo = config.set_temperature_sets([{'alias': 'TSet1', 'devices':[{'device_name':'Dev1','setpoint':10.0}]}])
+        assert not excinfo
+        items = [{'devices':['Dev1'],
+                  'timeslots_sets':[{'dates':['1','2','3','4','5','6','7'],'timeslots':[
+                           {'start_time':datetime.time.fromisoformat('00:00:00'),
+                            'temperature_set':'TSet1'}]}]}]
+        
+        excinfo = config.set_schedule({'alias':'test', 'schedule_items':items, 'parent_schedule':''})
+        assert excinfo and excinfo.id == ECfgError.BAD_REFERENCE
+        excinfo = config.set_schedule({'alias':'test', 'schedule_items':items, 'parent_schedule':'toto'})
+        assert excinfo and excinfo.id == ECfgError.BAD_REFERENCE
+        excinfo = config.set_schedule({'alias':'parent', 'schedule_items':items})
+        assert not excinfo
+        excinfo = config.set_schedule({'alias':'test', 'schedule_items':items, 'parent_schedule':'parent'})
+        assert config.get_schedule('test') != None
+        # Testing circular reference detection
+        excinfo = config.set_schedule({'alias':'test2', 'schedule_items':items, 'parent_schedule':'test'})
+        assert not excinfo
+        excinfo = config.set_schedule({'alias':'parent', 'schedule_items':items, 'parent_schedule':'test2'})
+        assert excinfo and excinfo.id == ECfgError.CIRCULAR_REF
 
     def test_get_scheduler_manual_mode_reset(self):
         config:Configuration = Configuration(config_path, 'good_', auto_save=False)

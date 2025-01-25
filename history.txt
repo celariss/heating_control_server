@@ -1,3 +1,10 @@
+v1.2.0 (xx/01/2025) :
+	- Added schedule inheritance management : a schedule may now inherits from another schedule
+	- Changes in configuration file format :
+		. added 'parent_schedule' field to scheduler/schedules
+		. added new command 'set_schedule_properties' to remote_control/receive_topic
+	- mqtt_remote_client : format of incoming commands is now checked to avoid crash in case of malformed messages
+
 v1.1.0 (08/01/2025) :
 	- Changes in configuration file format :
 		. moved 'manual_mode_reset_event' field to '/Scheduler/settings/' so that any remote client can read its value
