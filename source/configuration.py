@@ -522,7 +522,13 @@ class Configuration:
                     return CfgError(ECfgError.BAD_REFERENCE, node_path+"['"+schedule['alias']+"']", 'parent_schedule', {'reference':schedule['parent_schedule']}, self.logger)
             
             idx = 0
+            devices_in_schedule:list = []
             for schedule_item in schedule['schedule_items']:
+                for device in schedule_item['devices']:
+                    if device in devices_in_schedule:
+                        # A device can not be present twice in the same schedule
+                        return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, node_path+'/schedule_items/devices', None, {'key':device}, self.logger)
+                    devices_in_schedule.append(device)
                 cfgErr = self.__verify_schedule_item(schedule_item, schedule, idx)
                 if cfgErr: return cfgErr
                 idx = idx+1
@@ -575,11 +581,11 @@ class Configuration:
             if cfgErr: return cfgErr
             tss_idx = tss_idx+1
         # we should have 7 weekdays defined : 1-7
-        if len(weekdays)<7:
+        """ if len(weekdays)<7:
             missing = []
             for day in WEEKDAYS:
                 if day not in weekdays: missing.append(day)
-            return CfgError(ECfgError.MISSING_NODES, node_path+'/timeslots_sets', None, {'missing_children':missing}, self.logger)
+            return CfgError(ECfgError.MISSING_NODES, node_path+'/timeslots_sets', None, {'missing_children':missing}, self.logger) """
         return None
 
     def __verify_timeslots_set(self, timeslots_set:dict, weekdays:list, schedule:dict, schedule_item_idx:int, tss_idx:int) -> CfgError:
