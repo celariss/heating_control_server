@@ -1,3 +1,4 @@
+version: 7
 devices:
 - Boiler:
     entity: frisquet_boiler_pid_climate
@@ -921,4 +922,3 @@ settings:
   scheduler:
     init_delay_sec: 20
     manual_mode_reset_event: setpoint_change
-version: 6

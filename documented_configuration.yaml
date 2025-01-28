@@ -1,4 +1,4 @@
-version: 6 # version of the file format, do not edit
+version: 7 # version of the file format, do not edit
 
 settings:
   message_repeater:
@@ -150,6 +150,11 @@ remote_control:
         #     {"current_temp": double, "setpoint": double, "state":str}
         #     state can be 'false' (not available) or 'true' (available)
         send_device_states_base_topic: heatingcontrol/serverdata/devices
+        # is alive message
+        # payload (json): empty string or {"date":str, "ver":str}
+        #     where : "date" contains a date/time in ISO 8601 format,
+        #             "ver" is the server version
+        # the message receives an empty string when the server stops normally
         send_is_alive_topic: heatingcontrol/serverdata/is_alive
         # time (sec) between two is_alive commands
         is_alive_period: 5

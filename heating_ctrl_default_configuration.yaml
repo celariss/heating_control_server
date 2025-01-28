@@ -1,5 +1,5 @@
 # This is a minimal configuration file that allows the server to start
-version: 6
+version: 7
 
 settings:
   auto_discovery:

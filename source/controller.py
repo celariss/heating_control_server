@@ -84,7 +84,7 @@ class Controller(
         self.device_interfaces = DeviceInterfaces(self.devices, self.configuration.get_auto_discovery(), self)
 
         config_remote = self.configuration.get_remote_control()
-        self.remote_control = RemoteControl(config_remote, self.devices, self.available_devices, self)
+        self.remote_control = RemoteControl(config_remote, self.devices, self.available_devices, VERSION, self)
         self.remote_control.start()
 
         self.protocols.connect()

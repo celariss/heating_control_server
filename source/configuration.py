@@ -20,7 +20,7 @@ class Configuration:
         self.config_filename = os.path.join(config_path, config_files_prefix+'configuration.yaml')
         self.default_config_filename = os.path.join(config_path, config_files_prefix+'default_configuration.yaml')
         self.secrets_filename = os.path.join(config_path, config_files_prefix+'secrets.yaml')
-        self.format_version = 6
+        self.format_version = 7
         self.auto_save:bool=auto_save
         self.load()
     

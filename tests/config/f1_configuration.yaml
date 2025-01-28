@@ -1,3 +1,4 @@
+version: 7
 devices:
 - Dev1:
     entity: frisquet_boiler
@@ -162,4 +163,3 @@ settings:
     repeat_delay_sec: 120
   scheduler:
     init_delay_sec: 20
-version: 6

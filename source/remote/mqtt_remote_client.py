@@ -15,7 +15,7 @@ from errors import *
 
 
 class MQTTRemoteClient(RemoteClientBase):
-    def __init__(self, remote_name, config_remote_client, client: object, devices: dict[str, Device], available_devices: dict[str, Device], callbacks: RemoteControlCallbacks):
+    def __init__(self, remote_name, config_remote_client, client: object, devices: dict[str, Device], available_devices: dict[str, Device], server_version:str, callbacks: RemoteControlCallbacks):
         self.logger = logging.getLogger('hcs.mqttremoteclient')
         self.config_remote_client = config_remote_client
         # list of devices declared in configuration file
@@ -28,6 +28,7 @@ class MQTTRemoteClient(RemoteClientBase):
         self.remote_name = remote_name
         self.config_protocol = config_remote_client['protocol']
         self.client_name = self.config_protocol['name']
+        self.server_version = server_version
         if not isinstance(client, MQTTClient):
             self.logger.error("Bad configuration for remote '"+self.remote_name +
                               "': '"+self.client_name+"' is not a MQTT connexion")
@@ -148,10 +149,13 @@ class MQTTRemoteClient(RemoteClientBase):
         self.logger.debug('on_server_alive()')
         topic = self.send_is_alive_topic
         if is_alive:
-            data = datetime.datetime.now().isoformat()
+            data_json = json.dumps(
+            {"date": datetime.datetime.now().isoformat(),
+             "ver": self.server_version,
+             }, default=str)
         else:
-            data = ''
-        self.client.publish(data, topic, retain=True, qos=1)
+            data_json = ''
+        self.client.publish(data_json, topic, retain=True, qos=1)
 
     def on_client_message(self, message):
         if isinstance(message, mqtt.MQTTMessage):

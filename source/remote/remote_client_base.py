@@ -4,7 +4,9 @@ from device import Device
 from .remote_control_callbacks import RemoteControlCallbacks
 
 class RemoteClientBase:
-    def __init__(self, remote_name:str, config_remote_client: dict, devices: dict[str,Device], available_devices: dict[str, Device], callbacks:RemoteControlCallbacks):
+    def __init__(self,
+            remote_name:str, config_remote_client: dict, devices: dict[str,Device],
+            available_devices: dict[str, Device], server_version:str, callbacks:RemoteControlCallbacks):
         """_summary_
 
         :param remote_name: _description_

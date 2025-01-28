@@ -10,7 +10,9 @@ import logging
 
 
 class RemoteControl:
-    def __init__(self, config_remote_control, devices: dict[str,Device], available_devices: dict[str, Device], callbacks:RemoteControlCallbacks):
+    def __init__(self,
+        config_remote_control, devices: dict[str,Device], available_devices: dict[str, Device],
+        server_version:str, callbacks:RemoteControlCallbacks):
         """
         :param config_remote_control: _description_
         :type config_remote_control: _type_
@@ -30,7 +32,8 @@ class RemoteControl:
             protocol_type = callbacks.get_protocol_type_from_name(client_name)
             # Only MQTT protocol is known so far
             if protocol_type == MQTTProtocolHandler.get_config_type():
-                remote = MQTTRemoteClient(remote_name, config_remote, callbacks.get_client_by_name(client_name), devices, available_devices, callbacks)
+                remote = MQTTRemoteClient(remote_name, config_remote, callbacks.get_client_by_name(client_name),
+                                          devices, available_devices, server_version, callbacks)
             else:
                 self.logger.error("Invalid configuration for remote_control '"+protocol_type+"': unknown protocol type '"+protocol_type+"'")
                 return
