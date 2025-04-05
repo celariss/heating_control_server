@@ -233,7 +233,7 @@ class MQTTRemoteClient(RemoteClientBase):
                             self.callbacks.set_schedules_order(self.remote_name, params)
                         
                         else:
-                            err = CfgError(ECfgError.BAD_VALUE, message.topic, None, {'value':"'command':"+command}, self.logger)
+                            err = CfgError(ECfgError.BAD_VALUE, message.topic, None, {"value":'command: '+command}, self.logger)
                         
                     if err:
                         self.on_server_response('failure', err.to_dict())

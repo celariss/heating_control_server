@@ -45,6 +45,9 @@ class MQTTClient:
                 reconnect_on_failure=True)
         self.connect_thread: ThreadBase = ThreadBase()
 
+    def delete(self):
+        self.disconnect()
+
     # Callbacks must have following prototype :  
     # (MQTT v3) on_connect(paho_client, userdata, message, returncode)
     # (MQTT v5) TBD
@@ -61,9 +64,6 @@ class MQTTClient:
 
     def connect(self):
         self.connect_thread.start(self.__connect_thread)
-
-    """ async def __async_connect(self):
-        self.connect() """
 
     def disconnect(self):
         self.connect_thread.stop()

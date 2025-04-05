@@ -4,6 +4,9 @@ class ProtocolHandlerBase:
     def __init__(self, clients_config: list, callbacks: ProtocolHandlerCallbacks):
         pass
 
+    def stop(self):
+        pass
+
     # return the string identifying this type of protocol in configuration file
     # (as child of the "protocols" node)
     def get_config_type() -> str:

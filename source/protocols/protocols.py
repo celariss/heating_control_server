@@ -17,6 +17,10 @@ class Protocols:
         if MQTT in config_protocols:
             self.protocol_handlers[MQTT] = MQTTProtocolHandler(config_protocols[MQTT], callbacks)
 
+    def stop(self):
+        for handler in self.protocol_handlers.values():
+            handler.stop()
+
     def getProtocolTypes(self) -> list[str]:
         return self.protocol_handlers.keys()
 

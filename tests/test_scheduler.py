@@ -1,12 +1,12 @@
 from time import sleep
 import pytest
+from tests.helpers import *
 
 from scheduler import Scheduler, SchedulerCallbacks
 from configuration import Configuration
 from device import Device
 import datetime
 
-config_path = './tests/config'
 
 scheduler: Scheduler = None
 expected_setpoints: dict

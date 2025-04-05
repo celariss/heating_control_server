@@ -30,6 +30,12 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
             mqtt_client.set_callbacks(on_connect=self.__on_connect, on_disconnect=self.__on_disconnect, on_message=self.__on_message)
             self.mqttclients[name] = (mqtt_client, client_config)
 
+    def stop(self):
+        for clientname in self.mqttclients:
+            client:MQTTClient = self.mqttclients[clientname][0]
+            client.delete()
+            self.logger.info("Interface '"+clientname+"' : destroyed")
+
     def get_config_type() -> str:
         return 'mqtt'
 
@@ -49,7 +55,7 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
     def disconnect(self):
         for clientname in self.mqttclients:
             client = self.mqttclients[clientname][0]
-            if not client.is_connected():
+            if client.is_connected():
                 client.disconnect()
                 self.ha_status_subscriptions = []
                 self.logger.info("Interface '"+clientname+"' : disconnected")

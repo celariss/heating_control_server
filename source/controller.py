@@ -90,23 +90,24 @@ class Controller(
         self.protocols.connect()
 
     def stop(self):
-        self.logger.info('Stopping everything...')
-        self.device_interfaces.on_server_alive(False)
-        self.remote_control.stop()
-        if self.repeater:
-            self.repeater.stop()
-            self.repeater = None
-        if self.scheduler:
-            self.scheduler.stop()
-            self.scheduler = None
-        self.protocols.disconnect()
-        self.protocols = None
+        if self.configuration:
+            self.logger.info('Stopping everything...')
+            self.device_interfaces.on_server_alive(False)
+            self.remote_control.stop()
+            if self.repeater:
+                self.repeater.stop()
+                self.repeater = None
+            if self.scheduler:
+                self.scheduler.stop()
+                self.scheduler = None
+            self.protocols.stop()
+            self.protocols = None
 
-        self.remote_control = None
-        self.configuration = None
-        self.devices = {}
-        self.device_interfaces = None
-        self.logger.info('Server stopped')
+            self.remote_control = None
+            self.configuration = None
+            self.devices = {}
+            self.device_interfaces = None
+            self.logger.info('Server stopped')
 
     def __set_device_parameter(self, device_name:str, param_name:str, param_value, force_update: bool) -> CfgError:
         self.logger.debug("__set_device_parameter()")
@@ -311,8 +312,10 @@ class Controller(
     def add_device(self, remote_name:str, name:str, srventity:str):
         self.logger.info("[from '"+remote_name+"'] Received new device '"+name+"' with entity '"+srventity+"'")
         err:CfgError = None
-        if not srventity in self.available_devices:
-            err = CfgError(ECfgError.BAD_REFERENCE, '/entities', None, {'value':srventity}, self.logger)
+        if name == None or name == '':
+            err = CfgError(ECfgError.MISSING_VALUE, '/devices', None, {'value':'name'}, self.logger)
+        elif not srventity in self.available_devices:
+            err = CfgError(ECfgError.BAD_REFERENCE, '/entities', None, {'reference':srventity}, self.logger)
         else:
             device:Device = copy.deepcopy(self.available_devices[srventity])
             device.name = name
@@ -504,6 +507,8 @@ class Controller(
             config_file = open(config_file_path, 'r')
             logging_config = yaml.load(config_file,Loader=yaml.Loader)
             logging.config.dictConfig(logging_config)
+        else:
+            logging.root.level = logging.INFO
         self.logger = logging.getLogger('hcs.controller')
 
     # return True if all clients used by devices are connected

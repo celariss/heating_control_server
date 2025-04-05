@@ -1,11 +1,11 @@
 import datetime
 import os
 import pytest
+from tests.helpers import *
 
 from configuration import Configuration
 from errors import *
 
-config_path = './tests/config'
 
 class TestConfiguration:
     def test_init_missingfile(self):
@@ -70,8 +70,7 @@ class TestConfiguration:
         assert excinfo.value.id == ECfgError.BAD_VALUE
         assert excinfo.value.node_path == "/scheduler.settings.manual_mode_reset_event"
         assert 'value' in excinfo.value.params and excinfo.value.params['value']=="test_value"
-        for record in caplog.records:
-            assert record.levelname == "ERROR"
+        assert find_first_error(caplog)
         assert "scheduler.settings.manual_mode_reset_event" in caplog.text
         assert "test_value" in caplog.text
 
@@ -81,7 +80,6 @@ class TestConfiguration:
         assert excinfo.value.id == ECfgError.BAD_VALUE
         assert excinfo.value.node_path == "/scheduler.settings.manual_mode_reset_event"
         assert 'value' in excinfo.value.params and excinfo.value.params['value']==25
-        for record in caplog.records:
-            assert record.levelname == "ERROR"
+        assert find_first_error(caplog)
         assert "scheduler.settings.manual_mode_reset_event" in caplog.text
         assert "25" in caplog.text
