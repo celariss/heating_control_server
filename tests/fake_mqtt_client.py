@@ -41,16 +41,6 @@ class FakeMQTTClient:
                 message.topic = topic
             FakeMQTTClient.instance.on_message(FakeMQTTClient.instance, FakeMQTTClient.instance.userdata, message)
 
-    def publish_new_device(entity:str, name:str):
-        FakeMQTTClient.send_fake_message_raw('heat', 'homeassistant/climate/'+entity+'/state')
-        FakeMQTTClient.send_fake_message_raw('5.0', 'homeassistant/climate/'+entity+'/min_temp')
-        FakeMQTTClient.send_fake_message_raw('35.0', 'homeassistant/climate/'+entity+'/max_temp')
-        FakeMQTTClient.send_fake_message_raw('19.0', 'homeassistant/climate/'+entity+'/temperature')
-        FakeMQTTClient.send_fake_message_raw('20.3', 'homeassistant/climate/'+entity+'/current_temperature')
-        FakeMQTTClient.send_fake_message_raw(name, 'homeassistant/climate/'+entity+'/friendly_name')
-        FakeMQTTClient.send_fake_message_raw(datetime.datetime.now(datetime.timezone.utc).isoformat(), 'homeassistant/climate/'+entity+'/last_updated')
-        FakeMQTTClient.send_fake_message_raw('true', 'homeassistant/climate/'+entity+'/restored')
-
     instance = None
 
     def __init__(self, clientid, broker, port, user, pwd, transport = "websockets", userdata = None, clean_session=True, ssl = True):

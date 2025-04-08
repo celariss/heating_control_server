@@ -267,11 +267,11 @@ class Controller(
     def get_scheduler_config(self) -> dict:
         return self.configuration.get_scheduler()
 
-    def set_devices_order(self, remote_name:str, device_names:list):
+    def set_devices_order(self, remote_name:str, device_names:list, context:any):
         self.logger.info("[from '"+remote_name+"'] Received a new devices order : "+str(device_names))
         err:CfgError = self.configuration.set_devices_order(device_names)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             devices = {}
             for devname in device_names:
                 devices[devname] = self.devices[devname]
@@ -280,14 +280,14 @@ class Controller(
             self.device_interfaces.on_devices(self.devices)
             self.remote_control.on_devices(self.devices)
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change devices order")
 
-    def set_device_name(self, remote_name:str, old_name:str, new_name:str):
+    def set_device_name(self, remote_name:str, old_name:str, new_name:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received name change for a device : '"+old_name+"' -> '"+new_name+"'")
         err:CfgError = self.configuration.change_device_name(old_name, new_name)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # We update devices
             new_devs:dict[str,Device] = {}
             for name in self.devices:
@@ -306,15 +306,13 @@ class Controller(
             # something changed in scheduler data
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change schedule name")
 
-    def add_device(self, remote_name:str, name:str, srventity:str):
+    def add_device(self, remote_name:str, name:str, srventity:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received new device '"+name+"' with entity '"+srventity+"'")
         err:CfgError = None
-        if name == None or name == '':
-            err = CfgError(ECfgError.MISSING_VALUE, '/devices', None, {'value':'name'}, self.logger)
-        elif not srventity in self.available_devices:
+        if not srventity in self.available_devices:
             err = CfgError(ECfgError.BAD_REFERENCE, '/entities', None, {'reference':srventity}, self.logger)
         else:
             device:Device = copy.deepcopy(self.available_devices[srventity])
@@ -322,15 +320,15 @@ class Controller(
             err = self.configuration.add_device(device.name, srventity, device.protocol_client_name, device.protocol_params)
             if not err:
                 self.devices[device.name] = device
-                self.remote_control.on_server_response(remote_name, 'success')
+                self.remote_control.on_server_response(remote_name, context, 'success')
                 # We need to notify devices consumers
                 self.device_interfaces.on_devices(self.devices)
                 self.remote_control.on_devices(self.devices)
         if err:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not add new device from entity '"+srventity+"'")
 
-    def set_device_entity(self, remote_name:str, name:str, new_srventity:str):
+    def set_device_entity(self, remote_name:str, name:str, new_srventity:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received device server entity change request for device '"+name+"' with new entity '"+new_srventity+"'")
         device:Device = None
         entity:Device = None
@@ -338,13 +336,13 @@ class Controller(
         if not name in self.devices:
             err = CfgError(ECfgError.BAD_REFERENCE, '/devices', None, {'reference':name}, self.logger)
         elif not new_srventity in self.available_devices:
-            err = CfgError(ECfgError.BAD_REFERENCE, '/entities', None, {'value':new_srventity}, self.logger)
+            err = CfgError(ECfgError.BAD_REFERENCE, '/entities', None, {'reference':new_srventity}, self.logger)
         else:
             device = self.devices[name]
             entity = self.available_devices[new_srventity]
             err = self.configuration.change_device_entity(device.name, new_srventity, entity.protocol_params)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # Changing entity means changing all device parameters but name
             # => we take device parameters from entity object
             new_device:Device = copy.deepcopy(entity)
@@ -359,14 +357,14 @@ class Controller(
             # something changed in scheduler data
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change device '"+name+"' entity to '"+new_srventity+"'")
 
-    def delete_device(self, remote_name:str, name:str):
+    def delete_device(self, remote_name:str, name:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received deletion request for device : '"+name+"'")
         err:CfgError = self.configuration.delete_device(name)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             self.devices.pop(name)
             # We need to notify devices consumers
             self.repeater.remove_device_commands(name)
@@ -374,123 +372,129 @@ class Controller(
             self.remote_control.on_devices(self.devices)
             self.scheduler.on_devices(self.devices, self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not delete device")
 
-    def set_schedule(self, remote_name:str, schedule:dict):
+    def set_schedule(self, remote_name:str, schedule:dict, context:any):
         self.logger.info("[from '"+remote_name+"'] Received schedule '"+Configuration.get(schedule, 'alias','no-name')+"'")
         err:CfgError = self.configuration.set_schedule(schedule)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
             self.scheduler.set_schedule(schedule)
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
             
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not set invalid schedule")
 
-    def set_scheduler_settings(self, remote_name:str, settings:dict):
+    def set_scheduler_settings(self, remote_name:str, settings:dict, context:any):
         self.logger.info("[from '"+remote_name+"'] Received new scheduler settings")
+        err:CfgError = None
         if 'manual_mode_reset_event' in settings:
-            err:CfgError = self.configuration.set_scheduler_manual_mode_reset_event(settings['manual_mode_reset_event'])
+            err = self.configuration.set_scheduler_manual_mode_reset_event(settings['manual_mode_reset_event'])
             if not err:
-                self.remote_control.on_server_response(remote_name, 'success')
+                self.remote_control.on_server_response(remote_name, context, 'success')
                 # something changed in scheduler data
                 self.scheduler.set_manual_mode_reset_event(settings['manual_mode_reset_event'])
                 self.remote_control.on_scheduler(self.configuration.get_scheduler())
+        else:
+            err = CfgError(ECfgError.MISSING_NODES, '/scheduler', '', {'missing_children':['manual_mode_reset_event']}, self.logger)
+        if err:
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
+            self.logger.error("Could not set invalid schedule")
 
 
-    def set_temperature_sets(self, remote_name:str, temperature_sets:list[dict], schedule_name:str):
+    def set_temperature_sets(self, remote_name:str, temperature_sets:list[dict], schedule_name:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received new temperature sets")
         err:CfgError = self.configuration.set_temperature_sets(temperature_sets, schedule_name)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
             self.scheduler.set_scheduler(self.configuration.get_scheduler())
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not set invalid temperature sets")
 
-    def set_temperature_set_name(self, remote_name:str, old_name:str, new_name:str, schedule_name:str):
+    def set_temperature_set_name(self, remote_name:str, old_name:str, new_name:str, schedule_name:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received name change for a temperature set (schedule:'"+schedule_name+"')")
         err:CfgError = self.configuration.change_temperature_set_name(old_name, new_name, schedule_name)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
             self.scheduler.set_scheduler(self.configuration.get_scheduler())
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change temperature set name")
 
-    def set_schedule_name(self, remote_name:str, old_name:str, new_name:str):
+    def set_schedule_name(self, remote_name:str, old_name:str, new_name:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received name change for a schedule : '"+old_name+"' -> '"+new_name+"'")
         err:CfgError = self.configuration.change_schedule_name(old_name, new_name)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
             self.scheduler.set_scheduler(self.configuration.get_scheduler())
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change schedule name")
 
-    def set_schedule_properties(self, remote_name:str, name:str, new_name:str, parent:str):
+    def set_schedule_properties(self, remote_name:str, name:str, new_name:str, parent:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received properties change for a schedule : '"+name+"' -> '"+new_name+"', '"+parent+"'")
         err:CfgError = self.configuration.change_schedule_properties(name, new_name, parent)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
             self.scheduler.set_scheduler(self.configuration.get_scheduler())
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change schedule properties")
 
-    def delete_schedule(self, remote_name:str, schedule_name:str):
+    def delete_schedule(self, remote_name:str, schedule_name:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received a deletion request for schedule : '"+schedule_name+"'")
         err:CfgError = self.configuration.delete_schedule(schedule_name)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
             self.scheduler.set_scheduler(self.configuration.get_scheduler())
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not delete non existing schedule !")
 
-    def set_active_schedule(self, remote_name:str, schedule_name:str):
+    def set_active_schedule(self, remote_name:str, schedule_name:str, context:any):
         self.logger.info("[from '"+remote_name+"'] Received a new active schedule request ('"+schedule_name+"')")
         err:CfgError = self.configuration.set_active_schedule(schedule_name)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
             self.scheduler.on_active_schedule_changed()
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change active schedule")
 
-    def set_schedules_order(self, remote_name:str, schedule_names:list):
+    def set_schedules_order(self, remote_name:str, schedule_names:list, context:any):
         self.logger.info("[from '"+remote_name+"'] Received a new schedules order : "+str(schedule_names))
         err:CfgError = self.configuration.set_schedules_order(schedule_names)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change schedules order")
 
     # Ask for a device parameter change
     # param_name may be either :
     # - 'setpoint' : param_value must be a float.
-    def set_device_parameter(self, remote_name:str, device_name, param_name, param_value):
+    def set_device_parameter(self, remote_name:str, device_name, param_name, param_value, context:any):
         err:CfgError = self.__set_device_parameter(device_name, param_name, param_value, False)
         if not err:
-            self.remote_control.on_server_response(remote_name, 'success')
+            self.remote_control.on_server_response(remote_name, context, 'success')
         else:
-            self.remote_control.on_server_response(remote_name, 'failure', err.to_dict())
+            self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not set device parameter")
     ################################################################################
     # END OF RemoteControlCallbacks implementation

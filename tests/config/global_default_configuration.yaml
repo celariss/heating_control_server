@@ -1,4 +1,5 @@
-devices:
+version: 7
+
 protocols:
   mqtt:
   - broker: 127.0.0.1
@@ -9,6 +10,7 @@ protocols:
     pwd: mypasswd
     ssl: false
     user: mqtt
+
 remote_control:
 - name: flutter
   protocol:
@@ -22,11 +24,69 @@ remote_control:
       send_entities_topic: heatingcontrol/serverdata/on_entities
       send_is_alive_topic: heatingcontrol/serverdata/is_alive
       send_scheduler_topic: heatingcontrol/serverdata/on_scheduler
+
+devices:
+- device#1:
+    entity: test-dev-entity#1
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/test-dev-entity#1
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+- device#2:
+    entity: test-dev-entity#2
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/test-dev-entity#2
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
+
 scheduler:
-  active_schedule: null
-  schedules: []
   settings:
     manual_mode_reset_event: setpoint_change
+  
+  active_schedule: null
+
+  temperature_sets:
+  - alias: tset#1
+    devices:
+    - device_name: device#1
+      setpoint: 15.0
+  - alias: tset#2
+    devices:
+    - device_name: device#1
+      setpoint: 15.0
+  
+  schedules:
+  - alias: schedule#1
+    schedule_items:
+    - devices:
+      - device#1
+      timeslots_sets:
+      - dates: ['1','2','3','4','5']
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: tset#1
+  - alias: schedule#2
+    schedule_items:
+    - devices:
+      - device#1
+      timeslots_sets:
+      - dates: ['1','2','3','4','5']
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: tset#1
+
 settings:
   auto_discovery:
   - device_base_topic: homeassistant/climate
@@ -43,4 +103,3 @@ settings:
     repeat_delay_sec: 1
   scheduler:
     init_delay_sec: 1
-version: 7

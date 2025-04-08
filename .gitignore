@@ -3,3 +3,4 @@ heating_ctrl_configuration.yaml
 *.log
 heating_ctrl_secrets.yaml
 *~
+.coverage

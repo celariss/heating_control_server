@@ -114,7 +114,7 @@ class RemoteControl:
         for remote in self.remotes.values():
             remote.on_available_devices(devices)
 
-    def on_server_response(self, remote_name:str, status:str, error:dict=None):
-        self.logger.info("Sending server response to remote '"+remote_name+"' : status="+status+(", error="+str(error) if error else ""));
+    def on_server_response(self, remote_name:str, context:any, status:str, error:dict=None):
+        self.logger.info("Sending server response to remote '"+remote_name+"' : status="+status+", cmd="+context+(", error="+str(error) if error else ""));
         if remote_name in self.remotes:
-            self.remotes[remote_name].on_server_response(status, error)
+            self.remotes[remote_name].on_server_response(context, status, error)

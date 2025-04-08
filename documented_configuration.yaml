@@ -104,7 +104,8 @@ remote_control:
         receive_topic: heatingcontrol/command
         # send_command_response_topic: topic on which the response of every command is sent
         #   payload (JSON):
-        #     { "status":["success","failure"],
+        #     { "cmd": command name
+        #       "status":["success","failure"],
         #       "error": {'id':str, "node":str, "node_path":str, "node_key":str, "generic_desc":str}
         #     }
         #     -> 'generic_desc' contains an english description of the error
@@ -131,7 +132,7 @@ remote_control:
         #                        'aliases':list[str]
         #        - 'MISSING_VALUE' : Then "error" also contains the following key(s):
         #                        'value':str
-        #        - 'REFERENCED_NODE' : Then "error" does not contains no more keys
+        #        - 'REFERENCED_NODE' : Then "error" does not contains other keys
         send_command_response_topic: heatingcontrol/on_cmd_response
         # List of devices in current configuration. A device must be present in this list in order to be used in any schedule.
         # payload (json): list[device], i.e. : [{"name":"device1", "mqttid":"mqttid1", "srventity":"kitchen_thermostat"},

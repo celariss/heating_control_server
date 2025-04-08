@@ -165,6 +165,8 @@ class Configuration:
     # Set/Change/Delete methods
     ########################################################################################
     def add_device(self, device_name:str, entity:str, client_name:str, protocol_params:dict) -> CfgError:
+        if device_name == None or device_name == '':
+            return CfgError(ECfgError.BAD_VALUE, '/devices', None, {'value':''}, self.logger)
         devices:dict = self.get_devices()
         if device_name in devices:
             return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/devices', None, {'key':device_name}, self.logger)
@@ -185,7 +187,7 @@ class Configuration:
     
     def delete_device(self, device_name:str):
         if not self.get_device(device_name):
-            return CfgError(ECfgError.MISSING_VALUE, '/devices', None, {'value':device_name}, self.logger)
+            return CfgError(ECfgError.BAD_REFERENCE, '/devices', None, {'reference':device_name}, self.logger)
         
         # Looking for device_name in temperature sets and schedules
         err:bool = Configuration.__is_device_in_tempsets(self.get_temperature_sets(), device_name)
@@ -212,6 +214,8 @@ class Configuration:
             device:dict = self.get_device(old_name)
             if not device:
                 return CfgError(ECfgError.BAD_REFERENCE, '/devices', None, {'reference':old_name}, self.logger)
+            if new_name == '':
+                return CfgError(ECfgError.BAD_VALUE, '/devices', None, {'value':''}, self.logger)
 
             for device in self.configdata['devices']:
                 if old_name in device.keys():
@@ -342,16 +346,18 @@ class Configuration:
         return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/schedules', None, {'reference':schedule_name}, self.logger)
 
     def change_schedule_name(self, old_name:str, new_name:str) -> CfgError:
-        if not self.get_schedule(new_name):
-            schedule = self.get_schedule(old_name)
-            if not schedule:
-                return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/schedules', None, {'reference':old_name}, self.logger)
-            schedule['alias'] = new_name
-            if self.get_scheduler()['active_schedule'] == old_name:
-                self.get_scheduler()['active_schedule'] = new_name
-            self.__save()
-        else:
-            return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/scheduler/schedules', None, {'key':new_name}, self.logger)
+        schedule = self.get_schedule(old_name)
+        if not schedule:
+            return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/schedules', None, {'reference':old_name}, self.logger)
+        if self.get_schedule(new_name):
+            return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, '/scheduler/schedules', old_name, {'key':new_name}, self.logger)
+        if new_name=='':
+            return CfgError(ECfgError.BAD_VALUE, '/scheduler/schedules', old_name, {'value':new_name}, self.logger)
+        
+        schedule['alias'] = new_name
+        if self.get_scheduler()['active_schedule'] == old_name:
+            self.get_scheduler()['active_schedule'] = new_name
+        self.__save()
         return None
     
     def change_schedule_properties(self, name:str, new_name:str, parent:str) -> CfgError:
@@ -389,8 +395,10 @@ class Configuration:
         if not tempSet:
             return CfgError(ECfgError.BAD_REFERENCE, node_path, None, {'reference':old_name}, self.logger)
         if self.get_temperature_set(new_name, schedule_name):
-            return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, node_path, None, {'reference':new_name}, self.logger)
-
+            return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, node_path, None, {'key':new_name}, self.logger)
+        if new_name=='':
+            return CfgError(ECfgError.BAD_VALUE, node_path, None, {'value':new_name}, self.logger)
+        
         # 1) we change the name of the temperature set
         tempSet['alias'] = new_name
         # 2) We change all references to this temperature set
@@ -408,13 +416,13 @@ class Configuration:
             changed = Configuration._change_tempset_ref_in_schedule(schedule_config, old_name, new_name)
 
         if changed==True:
-            CfgError = self.__verify_scheduler_config()
-            if not CfgError:
+            err = self.__verify_scheduler_config()
+            if not err:
                 # there is no error detected
                 self.__save()
             else:
                 self.load()
-                return CfgError
+                return err
 
         return None
 
@@ -633,6 +641,8 @@ class Configuration:
             node_path = '/scheduler/temperature_sets'
             if 'alias' in parent:
                 node_path = "/scheduler/schedules['"+parent['alias']+"']/temperature_sets"
+            if not isinstance(parent['temperature_sets'], list):
+                return CfgError(ECfgError.BAD_VALUE, node_path, None, {'value':str(parent['temperature_sets'])}, self.logger)
             for tempset in parent['temperature_sets']:
                 cfgErr = self.__check_mandatories(tempset, ['alias', 'devices'], node_path, Configuration.get(tempset, 'alias', None))
                 if cfgErr: return cfgErr

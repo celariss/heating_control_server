@@ -74,5 +74,5 @@ class RemoteClientBase:
     def on_available_devices(self, devices:dict[str,Device]):
         pass
 
-    def on_server_response(self, status:str, error:dict=None):
+    def on_server_response(self, context:any, status:str, error:dict=None):
         pass

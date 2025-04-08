@@ -9,7 +9,10 @@
     "./source"
   ],
   "python.testing.pytestArgs": [
-    "tests"
+    "tests",
+    "--cov=./tests/",
+    "--cov-report=xml:./tests/coverage.xml",
+    "--cov-config=${workspaceFolder}/tests/.coveragerc"
   ],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,

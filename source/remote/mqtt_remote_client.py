@@ -159,6 +159,8 @@ class MQTTRemoteClient(RemoteClientBase):
 
     def on_client_message(self, message):
         if isinstance(message, mqtt.MQTTMessage):
+            command:str = '-'
+            context = command
             try:
                 if message.topic.startswith(self.send_device_states_base_topic+'/'):
                     if message.payload != '':
@@ -174,75 +176,81 @@ class MQTTRemoteClient(RemoteClientBase):
                             self.__remove_device_topic(mqttid)
 
                 elif message.topic == self.receive_topic:
-                    data = json.loads(message.payload)
+                    try:
+                        data = json.loads(message.payload)
+                    except json.JSONDecodeError:
+                        data = {}
                     err = self.__check_dico(self.receive_topic, data, ['command', 'params'])
                     if not err:
                         command = data['command']
                         params = data['params']
+                        context = command
 
                         if command == 'set_setpoint' and not (err:=self.__check_dico(command, params, ['setpoint', 'device_name'])):
                             floatData = common.toFloat(
                                 params['setpoint'], self.logger, "on_client_message(): Received invalid value on '"+message.topic+"' : ")
                             if floatData:
                                 self.callbacks.set_device_parameter(
-                                    self.remote_name, params['device_name'], 'setpoint', floatData)
+                                    self.remote_name, params['device_name'], 'setpoint', floatData, context)
+                            else:
+                                err = CfgError(ECfgError.BAD_VALUE, message.topic, None, {"value":str(params['setpoint'])}, self.logger)
                         
                         elif command == 'set_devices_order' and not (err:=self.__check_type(command, params, list)):
-                            self.callbacks.set_devices_order(self.remote_name, params)
+                            self.callbacks.set_devices_order(self.remote_name, params, context)
                         
                         elif command == 'set_device_name' and not (err:=self.__check_dico(command, params, ['old_name', 'new_name'])):
-                            self.callbacks.set_device_name(self.remote_name, params['old_name'], params['new_name'])
+                            self.callbacks.set_device_name(self.remote_name, params['old_name'], params['new_name'], context)
                         
                         elif command == 'add_device' and not (err:=self.__check_dico(command, params, ['name', 'srventity'])):
-                            self.callbacks.add_device(self.remote_name, params['name'], params['srventity'])
+                            self.callbacks.add_device(self.remote_name, params['name'], params['srventity'], context)
                         
                         elif command == 'set_device_entity' and not (err:=self.__check_dico(command, params, ['name', 'new_srventity'])):
-                            self.callbacks.set_device_entity(self.remote_name, params['name'], params['new_srventity'])
+                            self.callbacks.set_device_entity(self.remote_name, params['name'], params['new_srventity'], context)
                         
                         elif command == 'delete_device' and not (err:=self.__check_dico(command, params, ['name'])):
-                            self.callbacks.delete_device(self.remote_name, params['name'])
+                            self.callbacks.delete_device(self.remote_name, params['name'], context)
                         
                         elif command == 'set_schedule' and not (err:=self.__check_type(command, params, dict)):
-                            self.callbacks.set_schedule(self.remote_name, params)
+                            self.callbacks.set_schedule(self.remote_name, params, context)
                         
                         elif command == 'set_scheduler_settings' and not (err:=self.__check_type(command, params, dict)):
-                            self.callbacks.set_scheduler_settings(self.remote_name, params)
+                            self.callbacks.set_scheduler_settings(self.remote_name, params, context)
                         
                         elif command == 'set_tempsets' and not (err:=self.__check_dico(command, params, ['temperature_sets', 'schedule_name'])):
                             self.callbacks.set_temperature_sets(
-                                self.remote_name, params['temperature_sets'], params['schedule_name'])
+                                self.remote_name, params['temperature_sets'], params['schedule_name'], context)
                         
                         elif command == 'set_tempset_name' and not (err:=self.__check_dico(command, params, ['old_name', 'new_name', 'schedule_name'])):
                             self.callbacks.set_temperature_set_name(
-                                self.remote_name, params['old_name'], params['new_name'], params['schedule_name'])
+                                self.remote_name, params['old_name'], params['new_name'], params['schedule_name'], context)
                         
                         elif command == 'set_schedule_name' and not (err:=self.__check_dico(command, params, ['old_name', 'new_name'])):
-                            self.callbacks.set_schedule_name(self.remote_name, params['old_name'], params['new_name'])
+                            self.callbacks.set_schedule_name(self.remote_name, params['old_name'], params['new_name'], context)
                         
                         elif command == 'set_schedule_properties' and not (err:=self.__check_dico(command, params, ['name', 'new_name', 'parent'])):
-                            self.callbacks.set_schedule_properties(self.remote_name, params['name'], params['new_name'], params['parent'])
+                            self.callbacks.set_schedule_properties(self.remote_name, params['name'], params['new_name'], params['parent'], context)
                         
                         elif command == 'delete_schedule' and not (err:=self.__check_dico(command, params, ['schedule_name'])):
-                            self.callbacks.delete_schedule(self.remote_name, params['schedule_name'])
+                            self.callbacks.delete_schedule(self.remote_name, params['schedule_name'], context)
                         
                         elif command == 'set_active_schedule' and not (err:=self.__check_dico(command, params, ['schedule_name'])):
-                            self.callbacks.set_active_schedule(
-                                self.remote_name, params['schedule_name'])
+                            self.callbacks.set_active_schedule(self.remote_name, params['schedule_name'], context)
                         
                         elif command == 'set_schedules_order' and not (err:=self.__check_type(command, params, list)):
-                            self.callbacks.set_schedules_order(self.remote_name, params)
+                            self.callbacks.set_schedules_order(self.remote_name, params, context)
                         
                         else:
-                            err = CfgError(ECfgError.BAD_VALUE, message.topic, None, {"value":'command: '+command}, self.logger)
+                            if not err:
+                                err = CfgError(ECfgError.BAD_VALUE, message.topic, None, {"value":'command: '+command}, self.logger)
                         
                     if err:
-                        self.on_server_response('failure', err.to_dict())
+                        self.on_server_response(context, 'failure', err.to_dict())
             except Exception as exc:
                 self.logger.error("on_client_message(): Exception handling received data on topic '" +
                                   message.topic+"', data: '"+str(message.payload)+"'")
                 #self.logger.error(str(exc))
                 err = CfgError(ECfgError.EXCEPTION, message.topic, None, {'exception':str(exc)}, self.logger)
-                self.on_server_response('failure', err.to_dict())
+                self.on_server_response(context, 'failure', err.to_dict())
 
     def send_device_data(self, device:Device):
         #device: Device = self.devices[device.name]
@@ -279,12 +287,12 @@ class MQTTRemoteClient(RemoteClientBase):
     def on_device_setpoint(self, device:Device):
         self.send_device_data(device)
 
-    def on_server_response(self, status: str, error: dict = None):
+    def on_server_response(self, context:any, status: str, error: dict = None):
         topic = self.send_command_response_topic
         if error:
-            data_json = json.dumps({'status': status, 'error': error}, default=str)
+            data_json = json.dumps({'cmd':context, 'status': status, 'error': error}, default=str)
         else:
-            data_json = json.dumps({'status': status}, default=str)
+            data_json = json.dumps({'cmd':context, 'status': status}, default=str)
         self.client.publish(data_json, topic, retain=False, qos=1)
 
     # Thread that sends is alive ping
@@ -299,9 +307,12 @@ class MQTTRemoteClient(RemoteClientBase):
     def __check_dico(self, topic, data:dict, entries:list) -> CfgError:
         if err := self.__check_type(topic, data, dict):
             return err
+        missing_list = []
         for entry in entries:
             if not entry in data:
-                return CfgError(ECfgError.MISSING_VALUE, topic, None, {'value':entry}, self.logger)
+                missing_list.append(entry)
+        if len(missing_list)>0:
+            return CfgError(ECfgError.MISSING_NODES, topic, None, {'missing_children':missing_list}, self.logger)
         return None
     
     # Check that type of 'data' is 'type'
