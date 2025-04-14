@@ -1,5 +1,6 @@
 __author__      = "Jérôme Cuq"
 
+import copy
 import logging
 import datetime
 from device import Device
@@ -26,7 +27,7 @@ class Scheduler:
         
         self.logger = logging.getLogger('hcs.scheduler')
         self.logger.info('Starting scheduler')
-        self.config_scheduler = config_scheduler
+        self.config_scheduler = copy.deepcopy(config_scheduler)
         self.callbacks = callbacks
         self.devices:dict[str,Device] = devices
         # dict key is device name
@@ -49,9 +50,9 @@ class Scheduler:
         alias = schedule['alias']
         schedule_idx = self.__get_idx_in_schedules(alias)
         if schedule_idx>-1:
-            self.config_scheduler['schedules'][schedule_idx] = schedule
+            self.config_scheduler['schedules'][schedule_idx] = copy.deepcopy(schedule)
             if alias == self.config_scheduler['active_schedule']:
-                self.on_active_schedule_changed()
+                self.on_active_schedule_changed(alias)
 
     def set_manual_mode_reset_event(self, manual_mode_reset_event):
         self.manual_mode_reset_event = manual_mode_reset_event
@@ -63,7 +64,8 @@ class Scheduler:
             idx += 1
         return -1
 
-    def on_active_schedule_changed(self):
+    def on_active_schedule_changed(self, active_schedule):
+        self.config_scheduler['active_schedule'] = active_schedule
         # reset manual mode for all devices
         for devname in self.__get_devices_in_manual_mode():
             self.logger.info("Device['"+devname+"'] is going out of manual setpoint mode")
@@ -75,7 +77,7 @@ class Scheduler:
     def on_devices(self, devices:dict[str,Device], scheduler:dict):
         with self.active_schedule_thread.lock:
             self.devices = devices
-            self.config_scheduler = scheduler
+            self.config_scheduler = copy.deepcopy(scheduler)
             # Update the current setpoints so that the schedule thread
             # does not believe that setpoints have changed
             result = self.get_setpoints(self.__get_current_date())
@@ -96,10 +98,14 @@ class Scheduler:
             self.active_schedule_changed = True
 
     def set_scheduler(self, scheduler:dict):
-        self.config_scheduler = scheduler
-        with self.active_schedule_thread.lock:
-            # notify the thread that active schedule may has changed
-            self.active_schedule_changed = True
+        active_changed = self.config_scheduler['active_schedule'] != scheduler['active_schedule']
+        self.config_scheduler = copy.deepcopy(scheduler)
+        if active_changed:
+            self.on_active_schedule_changed(self.config_scheduler['active_schedule'])
+        else:
+            with self.active_schedule_thread.lock:
+                # notify the thread that active schedule content may has changed
+                self.active_schedule_changed = True
 
     # for testing purpose : a test date replaces the actual date
     def set_test_date(self, test_date:datetime = None):

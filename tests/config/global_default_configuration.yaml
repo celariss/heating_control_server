@@ -50,6 +50,18 @@ devices:
         on_setpoint_subtopic: temperature
         on_state_subtopic: state
         set_setpoint_subtopic: new_setpoint
+- device#3:
+    entity: test-dev-entity#3
+    protocol:
+      name: mqtt_ha
+      params:
+        device_base_topic: homeassistant/climate/test-dev-entity#3
+        on_current_temp_subtopic: current_temperature
+        on_max_temp_subtopic: max_temp
+        on_min_temp_subtopic: min_temp
+        on_setpoint_subtopic: temperature
+        on_state_subtopic: state
+        set_setpoint_subtopic: new_setpoint
 
 scheduler:
   settings:
@@ -78,6 +90,7 @@ scheduler:
         - start_time: 00:00:00
           temperature_set: tset#1
   - alias: schedule#2
+    parent_schedule: "schedule#1"
     schedule_items:
     - devices:
       - device#1
@@ -86,6 +99,49 @@ scheduler:
         timeslots:
         - start_time: 00:00:00
           temperature_set: tset#1
+  - alias: schedule#3
+    parent_schedule: "schedule#1"
+    temperature_sets:
+    - alias: sch3_tset#1
+      devices:
+      - device_name: device#3
+        setpoint: 16.0
+    - alias: sch3_tset#2
+      devices:
+      - device_name: device#3
+        setpoint: 16.0
+    schedule_items:
+    - devices:
+      - device#1
+      timeslots_sets:
+      - dates: ['1','2','3','4','5']
+        timeslots:
+        - start_time: 00:00:00
+          temperature_set: tset#1
+  - alias: schedule#4
+    temperature_sets:
+    - alias: tset#1
+      parent: tset#1
+      devices:
+      - device_name: device#3
+        setpoint: 16.0
+    - alias: sch4_tset#2
+      devices:
+      - device_name: device#3
+        setpoint: 20.0
+    schedule_items:
+    - devices:
+      - device#1
+      timeslots_sets:
+      - dates: ['1','2','3','4','5']
+        timeslots_A:
+        - start_time: 00:00:00
+          temperature_set: tset#1
+        timeslots_B:
+        - start_time: 00:00:00
+          temperature_set: tset#1
+        - start_time: 16:30:30
+          temperature_set: sch4_tset#2
 
 settings:
   auto_discovery:

@@ -7,6 +7,10 @@ class save_class:
 
 
 class FakeMQTTClient:
+    """ This class replaces the functions of the protocols.MQTTClient class
+    in order to send and receive fake mqtt command to/from the server
+    """
+
     # static methods
     def replace_methods(target_class:type):
         FakeMQTTClient.change_methods(save_class, target_class)
@@ -57,6 +61,7 @@ class FakeMQTTClient:
             self.userdata = self
         self.bconnected = False
         self.published_messages = {}
+        self.published_messages_json = {}
         self.deleted = False
         FakeMQTTClient.instance = self
 
@@ -90,4 +95,8 @@ class FakeMQTTClient:
 
     def publish(self, data, topic:str, retain:bool=False, qos=1) -> bool:
         self.published_messages[topic] = data
+        try:
+            self.published_messages_json[topic] = json.loads(data)
+        except:
+            self.published_messages_json[topic] = None
         return True

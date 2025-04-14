@@ -181,8 +181,6 @@ scheduler:
   # (OPTIONAL) global temperature sets
   temperature_sets:
   - alias: "Night"
-    # (OPTIONAL) alias to a temperature_set to inherit values from
-    inherits: 'other'
     devices:
     - device_name: "Room #1"
       setpoint: 15.0
@@ -201,7 +199,11 @@ scheduler:
   - alias: "Default"
     # (OPTIONAL) local temperature sets
     temperature_sets:
-      ... # same format than global temperature sets
+      - alias: "my tset"
+        # (OPTIONAL) alias to a temperature_set to inherit values from
+        #            note : this alias must be a global temperature set
+        parent: 'Night'
+      ... # + all other properties from global temperature sets
     # (OPTIONAL) Schedule to inherit from
     parent_schedule: "schedule#1"
     # List of items in schedule : each item is "sub-schedule" for a set of devices 

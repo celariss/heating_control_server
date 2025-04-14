@@ -357,6 +357,9 @@ class Configuration:
         schedule['alias'] = new_name
         if self.get_scheduler()['active_schedule'] == old_name:
             self.get_scheduler()['active_schedule'] = new_name
+        for schedule in self.get_schedules():
+            if 'parent_schedule' in schedule and schedule['parent_schedule']==old_name:
+                schedule['parent_schedule'] = new_name
         self.__save()
         return None
     
@@ -383,8 +386,15 @@ class Configuration:
         return cfgErr
 
     def delete_schedule(self, schedule_name:str) -> CfgError:
+        for schedule in self.get_schedules():
+            if 'parent_schedule' in schedule and schedule['parent_schedule'] == schedule_name:
+                return CfgError(ECfgError.REFERENCED_NODE, '/scheduler/schedules', schedule_name, {}, self.logger)
         if Configuration.__delete_schedule(self.get_schedules(), schedule_name)==False:
             return CfgError(ECfgError.BAD_REFERENCE, '/scheduler/schedules', None, {'reference':schedule_name}, self.logger)
+        scheduler = self.get_scheduler()
+        if 'active_schedule' in scheduler and scheduler['active_schedule'] == schedule_name:
+            self.get_scheduler()['active_schedule'] = None
+        self.__save()
         return None
 
     def change_temperature_set_name(self, old_name:str, new_name:str, schedule_name:str='') -> CfgError:
@@ -399,21 +409,21 @@ class Configuration:
         if new_name=='':
             return CfgError(ECfgError.BAD_VALUE, node_path, None, {'value':new_name}, self.logger)
         
-        # 1) we change the name of the temperature set
-        tempSet['alias'] = new_name
-        # 2) We change all references to this temperature set
         changed:bool = False
+        # 1) we change the name of the temperature set
+        if tempSet['alias'] == old_name:
+            tempSet['alias'] = new_name
+            changed = True
+        # 2) We change all references to this temperature set
         if schedule_name=='':
-            # The temperature is global : we need to change the references everywhere
-            tempSets:list = self.get_temperature_sets(schedule_name)
-            changed = Configuration._change_tempset_ref_in_tempsets(tempSets, old_name, new_name)
+            # The temperature is global : we need to change the references in schedules temperature sets
             for schedule_config in self.get_schedules():
-                if Configuration._change_tempset_ref_in_schedule(schedule_config, old_name, new_name):
+                if Configuration._change_globaltempset_ref_in_schedule(schedule_config, old_name, new_name):
                     changed = True
         else:
-            # We change references only in local schedule
-            schedule_config = self.get_schedule(schedule_name)
-            changed = Configuration._change_tempset_ref_in_schedule(schedule_config, old_name, new_name)
+            schedule = self.get_schedule(schedule_name)
+            if Configuration._change_localtempset_ref_in_schedule(schedule, old_name, new_name):
+                changed = True
 
         if changed==True:
             err = self.__verify_scheduler_config()
@@ -544,20 +554,6 @@ class Configuration:
             # converting start_time to datetime.time in the scheduler configuration
             cfgErr = self.__convert_schedule_dates_from_string(schedule)
             if cfgErr: return cfgErr
-        
-        # Detecting circular dependencies in temperature sets
-        global_temp_sets = Configuration.get_dict_values_from_path(self.configdata, ['scheduler', 'temperature_sets'])
-        for schedule in schedules:
-            if 'temperature_sets' in schedule:
-                node_path:str = "/scheduler/schedules['"+schedule['alias']+"']/temperature_sets"
-                temp_sets = schedule['temperature_sets']
-                cfgErr = self.__check_mandatories(temp_sets, ['alias', 'devices'], node_path)
-                if cfgErr: return cfgErr
-                temp_sets.extend(global_temp_sets)
-                for temp_set in temp_sets:
-                    aliases = self.__detect_tempset_circular_dependency(temp_sets, temp_set)
-                    if aliases:
-                        return CfgError(ECfgError.CIRCULAR_REF, node_path, None, {'aliases':aliases}, self.logger)
                     
         # Detecting circular dependencies in schedules inheritance
         for schedule in schedules:
@@ -652,9 +648,9 @@ class Configuration:
                     return CfgError(ECfgError.DUPLICATE_UNIQUE_KEY, node_path, None, {'key':tempset['alias']}, self.logger)
                 node_path_ = node_path+"['"+tempset['alias']+"']"
                 tempsets.append(tempset['alias'])
-                if 'inherited' in tempset:
-                    if not self.__find_temperature_set(tempset['inherited'], schedule):
-                        return CfgError(ECfgError.BAD_REFERENCE, node_path_+"/inherited", None, {'reference':tempset['inherited']}, self.logger)
+                if 'parent' in tempset and schedule != None:
+                    if not self.__find_temperature_set(tempset['parent'], schedule):
+                        return CfgError(ECfgError.BAD_REFERENCE, node_path_+"/parent", None, {'reference':tempset['parent']}, self.logger)
                 dev_idx = 0
                 for device in tempset['devices']:
                     cfgErr = self.__check_mandatories(device, ['device_name', 'setpoint'], node_path_+"/devices", str(dev_idx))
@@ -667,23 +663,6 @@ class Configuration:
                     device['setpoint'] = value
                     dev_idx = dev_idx + 1
         return None
-
-    def __detect_tempset_circular_dependency(self, temp_sets, temp_set, previous_aliases = []) -> list:
-        # test for circular dependency in list of aliases
-        tempset_alias = temp_set['alias']
-        if tempset_alias in previous_aliases:
-            return previous_aliases
-        previous_aliases.append(tempset_alias)
-
-        # continue to browse hierarchy 
-        if temp_set['inherits']:
-            inherit_alias = temp_set['inherits']
-            for set in temp_sets:
-                if set['alias']==inherit_alias:
-                    res = self.__detect_tempset_circular_dependency(temp_sets, set, previous_aliases)
-                    if res: return res
-        return None
-
 
     ########################################################################################
     # STATIC PUBLIC METHODS
@@ -787,28 +766,49 @@ class Configuration:
     def _change_tempset_ref_in_tempsets(tempSets:list, old_name:str, new_name:str) -> bool:
         result:bool = False
         for tempSet in tempSets:
-            if ('inherits' in tempSet) and tempSet['inherits']==old_name:
-                tempSet['inherits'] = new_name
+            if ('parent' in tempSet) and tempSet['parent']==old_name:
+                tempSet['parent'] = new_name
                 result = True
         return result
+    
+    def _get_all_timeslots(timeslotSet:dict)->list:
+        ts:list = []
+        if 'timeslots' in timeslotSet:
+            ts.extend(timeslotSet['timeslots'])
+        else:
+            ts.extend(timeslotSet['timeslots_A'])
+            ts.extend(timeslotSet['timeslots_B'])
+        return ts
 
-    def _change_tempset_ref_in_schedule(schedule_config:dict, old_name:str, new_name:str) -> bool:
+    def _change_localtempset_ref_in_schedule(schedule_config:dict, old_name:str, new_name:str) -> bool:
         result:bool = False
-        if 'temperature_sets' in schedule_config:
-            tempSets:list = schedule_config['temperature_sets']
-            Configuration._change_tempset_ref_in_tempsets(tempSets, old_name, new_name)
         for schedule_item in schedule_config['schedule_items']:
             for timeslotSet in schedule_item['timeslots_sets']:
-                ts:list = []
-                if 'timeslots' in timeslotSet:
-                    ts.extend(timeslotSet['timeslots'])
-                else:
-                    ts.extend(timeslotSet['timeslots_A'])
-                    ts.extend(timeslotSet['timeslots_B'])
+                ts:list = Configuration._get_all_timeslots(timeslotSet)
                 for timeslot in ts:
                     if timeslot['temperature_set'] == old_name:
                         timeslot['temperature_set'] = new_name
                         result = True
+        return result
+
+    def _change_globaltempset_ref_in_schedule(schedule_config:dict, old_name:str, new_name:str) -> bool:
+        result:bool = False
+        local_tempset_with_old_name_exists = False
+        if 'temperature_sets' in schedule_config:
+            tempSets:list = schedule_config['temperature_sets']
+            result = Configuration._change_tempset_ref_in_tempsets(tempSets, old_name, new_name)
+            for tempset in tempSets:
+                if tempset['alias'] == old_name:
+                    local_tempset_with_old_name_exists = True
+                    break
+        if local_tempset_with_old_name_exists == False :
+            for schedule_item in schedule_config['schedule_items']:
+                for timeslotSet in schedule_item['timeslots_sets']:
+                    ts:list = Configuration._get_all_timeslots(timeslotSet)
+                    for timeslot in ts:
+                        if timeslot['temperature_set'] == old_name:
+                            timeslot['temperature_set'] = new_name
+                            result = True
         return result
 
     # @return True if any change occured in configuration data

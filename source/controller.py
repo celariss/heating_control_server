@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -471,7 +471,7 @@ class Controller(
         if not err:
             self.remote_control.on_server_response(remote_name, context, 'success')
             # something changed in scheduler data
-            self.scheduler.on_active_schedule_changed()
+            self.scheduler.on_active_schedule_changed(self.configuration.get_scheduler()['active_schedule'])
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
             self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
@@ -482,6 +482,7 @@ class Controller(
         err:CfgError = self.configuration.set_schedules_order(schedule_names)
         if not err:
             self.remote_control.on_server_response(remote_name, context, 'success')
+            self.remote_control.on_scheduler(self.configuration.get_scheduler())
         else:
             self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not change schedules order")
