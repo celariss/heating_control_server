@@ -41,7 +41,7 @@ class TSHelpers:
             FakeMQTTClient.send_fake_message(cmdname, params, cmd_topic)
             assert response_topic in FakeMQTTClient.instance.published_messages
             assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
-            check_no_error(caplog)
+            check_no_error(caplog, True)
 
             # We check that the new device has been pushed to the remote clients by the server
             devices = json.loads(FakeMQTTClient.instance.published_messages[on_devices_topic])
@@ -65,7 +65,7 @@ class TSHelpers:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
         if schedule_name=='':
             assert TSHelpers.get_active_schedule_name() == None
         else:

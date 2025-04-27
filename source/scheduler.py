@@ -136,7 +136,7 @@ class Scheduler:
         if 'active_schedule' in self.config_scheduler:
             active_alias:str = self.config_scheduler['active_schedule']
             if active_alias:
-                # We look for schedule matching active alias and then ass all its inheritance tree
+                # We look for schedule matching active alias and all its inheritance tree
                 schedules = []
                 schedule:dict = self.__get_schedule(active_alias)
                 schedules.append(schedule)
@@ -147,38 +147,23 @@ class Scheduler:
                 # Now we browse the collected schedules to get all setpoints.
                 # For each device, we look for the first setpoint in the inheritance tree
                 setpoints = {}
-                error = False
                 for schedule in schedules:
                     alias = schedule['alias']
                     # We look for the time slot that applies to schedule at given time
-                    timeslots = Scheduler.__find_timeslots(schedule, date_)
-                    if not timeslots:
-                        self.logger.error("No time slot with current date (missing weekday ?) declared in schedule '"+alias+"'")
-                        error = True
-                    else:
-                        log = ''
-                        for timeslot in timeslots:
-                            log = log + str(timeslot) + ", "
-                        self.logger.debug("schedule '"+alias+"' currently uses time slots '"+log)
-
-                        index = 0
-                        for schedule_item in schedule['schedule_items']:
-                            # get active timeslot for current schedule item
-                            timeslot = timeslots[index]
-                            temp_set_alias = timeslot['temperature_set']
+                    timeslots = self.__find_timeslots(schedule, date_)
+                    index = 0
+                    for schedule_item in schedule['schedule_items']:
+                        # get active timeslot for current schedule item
+                        timeslot = timeslots[index]
+                        if timeslot:
                             for device_name in schedule_item['devices']:
                                 setpoint:float = self.__get_setpoint(schedule, device_name, timeslot)
                                 if setpoint != None and not device_name in setpoints:
                                     setpoints[device_name] = (setpoint, timeslot['start_time'])
-                                #else:
-                                #    self.logger.error("device '"+device_name+"' is not declared in temperature set '"+temp_set_alias+"' in schedule '"+schedule['alias']+"'")
-                                #    error = True
-                            index = index+1
+                        index = index+1
             
-                if not error:
-                    return (True, active_alias, setpoints)
-                else:
-                    return (False, active_alias, setpoints)
+                return (True, active_alias, setpoints)
+    
         return (True, None, {})
 
 
@@ -201,16 +186,14 @@ class Scheduler:
         return None
 
     # return a list of timeslots. Each item of the list is the timeslot that applies to the corresponding schedule_item.
-    # return None if no time slot applies to the given date for one or more devices in schedule
-    def __find_timeslots(schedule, date_:datetime.datetime) -> list[dict]:
+    # None is put to the result list for each schedule item with no applying timeslot, 
+    def __find_timeslots(self, schedule, date_:datetime.datetime) -> list[dict]:
         result:list[dict] = []
         for schedule_item in schedule['schedule_items']:
             timeslots_sets = schedule_item['timeslots_sets']
             timeslot = Scheduler.__find_timeslot(timeslots_sets, date_)
-            if timeslot:
-                result.append(timeslot)
-            else:
-                return None
+            # timeslot can be None
+            result.append(timeslot)
         return result
 
     # return None if no time slot applies to the given date

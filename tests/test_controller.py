@@ -10,4 +10,4 @@ class TestController:
         controller = Controller(config_path, 'ctrl_')
         controller.start()
         controller.stop()
-        check_no_error(caplog)
+        check_no_error(caplog, True)

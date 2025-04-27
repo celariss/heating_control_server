@@ -23,12 +23,15 @@ def cmp_dico(dico1:dict, dico2:dict) -> bool:
 
 #def teardown_module(module):
 
-# The goal here is to test a realistic schedule
+# The goal here is to test a realistic schedule mixing weekA and weekB
 # Steps  1-1x : testing Week A
 # Steps 21-2x : testing Week B
 # Steps 31-3x : testing schedule inheritance
 class TestScheduler_weekA_weekB:
     # SchedulerCallbacks
+    def scheduler_error(self):
+        assert False
+
     def apply_devices_setpoints(self, setpoints: dict[str,tuple[float,bool]]):
         global scheduler
         global expected_setpoints
@@ -209,18 +212,18 @@ class TestScheduler_weekA_weekB:
             self.step = -1
             scheduler.stop()
 
-    def test_scheduler_weekA(self):
+    def test_scheduler_weekA(self, caplog):
         # Week A test
-        self.__test_scheduler('Normal', 1, "2025-01-20T00:00:00")
+        self.__test_scheduler('Normal', 1, "2025-01-20T00:00:00", caplog)
 
-    def test_scheduler_weekB(self):
+    def test_scheduler_weekB(self, caplog):
         # Week B test : we test only the week B specific part
-        self.__test_scheduler('Normal', 21, "2025-01-27T14:20:00")
+        self.__test_scheduler('Normal', 21, "2025-01-27T14:20:00", caplog)
 
-    def test_scheduler_inheritance(self):
-        self.__test_scheduler('teleworking', 31, "2025-01-20T06:20:00")
+    def test_scheduler_inheritance(self, caplog):
+        self.__test_scheduler('teleworking', 31, "2025-01-20T06:20:00", caplog)
 
-    def __test_scheduler(self, active_schedule:str, step:int, start_date:str):
+    def __test_scheduler(self, active_schedule:str, step:int, start_date:str, caplog):
         self.devices: dict[str, Device] = {}
         config:Configuration = Configuration(config_path, 'realistic1_')
         config_scheduler = config.get_scheduler()
@@ -249,3 +252,4 @@ class TestScheduler_weekA_weekB:
         scheduler.active_schedule_thread.join()
         scheduler = None
         assert self.step == -1
+        check_no_error(caplog, False)

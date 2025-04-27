@@ -30,6 +30,9 @@ def cmp_dico(dico1:dict, dico2:dict, ignore_missing:bool=False) -> bool:
 # using the 'settings.manual_mode_reset_event' set to a numeric value (time based manual mode)
 class TestSchedulerManualMode1:
     # SchedulerCallbacks
+    def scheduler_error(self):
+        assert False
+
     def apply_devices_setpoints(self, setpoints: dict[str,tuple[float,bool]]):
         global scheduler
         if self.step == 1:
@@ -68,7 +71,7 @@ class TestSchedulerManualMode1:
             self.step = -1
             scheduler.stop()
 
-    def test_manual_mode_1(self):
+    def test_manual_mode_1(self, caplog):
         self.devices: dict[str, Device] = {}
         config:Configuration = Configuration(config_path, 'f1_')
         config_scheduler = config.get_scheduler()
@@ -107,3 +110,4 @@ class TestSchedulerManualMode1:
         scheduler.active_schedule_thread.join()
         scheduler = None
         assert self.step == -1
+        check_no_error(caplog, False)

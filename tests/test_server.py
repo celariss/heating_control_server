@@ -41,7 +41,7 @@ class TestServer:
         caplog.set_level(logging.INFO)
         self.__start_env()
         self.__stop_env()
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
     def test_server_bad_mqtt_command(self, caplog):
         caplog.set_level(logging.INFO)
@@ -202,7 +202,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         #We check that a setpoint commnd has been sent to mqtt entity
         topic = 'homeassistant/climate/test-dev-entity#2/new_setpoint'
@@ -239,7 +239,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         # We check the new order
         devices = json.loads(FakeMQTTClient.instance.published_messages[on_devices_topic])
@@ -264,7 +264,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         # We check that the device has been actually renamed
         # 1) There is no occurence of device#1 left anywhere in configuration
@@ -295,7 +295,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         # Checking 
         device = TSHelpers.find_device("device#1")
@@ -329,7 +329,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         # We check that the device has been actually deleted
         assert TSHelpers.find_device("device#2") == None
@@ -376,7 +376,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         # We check that schedule#2 has been deleted
         assert TSHelpers.find_schedule("schedule#2") == None
@@ -399,7 +399,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         # We check that :
         # - the schedule has been renamed
@@ -436,7 +436,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         # We check that :
         # - the schedule has been renamed
@@ -455,7 +455,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         schedule3 = TSHelpers.find_schedule("schedule#3")
         assert schedule3 and 'parent_schedule' in schedule3 and schedule3['parent_schedule']=="schedule#2"
@@ -476,7 +476,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         schedule3 = TSHelpers.find_schedule("schedule#3")
         assert schedule3
@@ -489,7 +489,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         schedule4 = TSHelpers.find_schedule("schedule#4")
         assert schedule4
@@ -507,7 +507,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         cmdname = "set_scheduler_settings"
         params = {"manual_mode_reset_event": "timeslot_change"}
@@ -515,7 +515,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         cmdname = "set_scheduler_settings"
         params = {"manual_mode_reset_event": "setpoint_change"}
@@ -523,7 +523,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         self.__stop_env()
 
@@ -537,7 +537,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         schedules = TSHelpers.get_schedules()
         assert schedules[0]['alias'] == "schedule#1"
@@ -569,7 +569,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         assert TSHelpers.count_global_tempset_references("tset#1") == 0
         # schedule#4 has a local temperature set named tset#1, 
@@ -597,7 +597,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         assert TSHelpers.count_global_tempset_references("tset#1") == count
         assert TSHelpers.count_global_tempset_references("my_tset") == 0
@@ -623,7 +623,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         cmdname = "set_tempsets"
         params = {"temperature_sets": [{'alias': 'sch4_tset#2', 'devices': [{'device_name': 'device#1', 'setpoint': 16.0}]},
@@ -633,7 +633,7 @@ class TestServer:
         assert response_topic in FakeMQTTClient.instance.published_messages
         assert '"status": "success"' in FakeMQTTClient.instance.published_messages[response_topic]
         assert '"cmd": "'+cmdname+'"' in FakeMQTTClient.instance.published_messages[response_topic]
-        check_no_error(caplog)
+        check_no_error(caplog, True)
 
         cmdname = "set_tempsets"
         params = {"temperature_sets": [{'alias': 'tset#2', 'devices': [{'device_name': 'device#1', 'setpoint': 16.0}]},

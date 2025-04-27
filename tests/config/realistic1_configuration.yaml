@@ -574,6 +574,7 @@ scheduler:
         - start_time: '19:30:00'
           temperature_set: Evening
   - alias: Holiday1
+    parent_schedule: Normal
     schedule_items:
     - devices:
       - Boiler
@@ -587,8 +588,6 @@ scheduler:
         - '4'
         - '2'
         - '5'
-        - '6'
-        - '7'
         timeslots:
         - start_time: 00:00:00
           temperature_set: Night
@@ -609,8 +608,6 @@ scheduler:
         - '5'
         - '2'
         - '3'
-        - '6'
-        - '7'
         timeslots:
         - start_time: 00:00:00
           temperature_set: Night
@@ -628,10 +625,9 @@ scheduler:
         - '4'
         - '5'
         - '6'
-        - '7'
         timeslots:
         - start_time: 00:00:00
-          temperature_set: Night
+          temperature_set: DayTime/NotPresent
         - start_time: 06:30:00
           temperature_set: WakingUp
         - start_time: 08:00:00
@@ -649,8 +645,6 @@ scheduler:
         - '4'
         - '2'
         - '5'
-        - '6'
-        - '7'
         timeslots:
         - start_time: 00:00:00
           temperature_set: Night

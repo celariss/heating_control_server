@@ -28,6 +28,9 @@ def cmp_dico(dico1:dict, dico2:dict) -> bool:
 #   2) using the 'settings.manual_mode_reset_event' set to either 'timeslot_change' or 'setpoint_change'
 class TestSchedulerManualMode2:
     # SchedulerCallbacks
+    def scheduler_error(self):
+        assert False
+
     def apply_devices_setpoints(self, setpoints: dict[str,tuple[float,bool]]):
         global scheduler
         if self.step == 1:
@@ -140,16 +143,16 @@ class TestSchedulerManualMode2:
             scheduler.stop()
 
 
-    def test_manual_mode_2a(self):
-        self.__manual_mode_2(step=1, manual_mode_reset_event=1)
+    def test_manual_mode_2a(self, caplog):
+        self.__manual_mode_2(step=1, manual_mode_reset_event=1, caplog=caplog)
 
-    def test_manual_mode_2b(self):
-        self.__manual_mode_2(step=11, manual_mode_reset_event='timeslot_change')
+    def test_manual_mode_2b(self, caplog):
+        self.__manual_mode_2(step=11, manual_mode_reset_event='timeslot_change', caplog=caplog)
 
-    def test_manual_mode_2c(self):
-        self.__manual_mode_2(step=21, manual_mode_reset_event='setpoint_change')
+    def test_manual_mode_2c(self, caplog):
+        self.__manual_mode_2(step=21, manual_mode_reset_event='setpoint_change', caplog=caplog)
 
-    def __manual_mode_2(self, step, manual_mode_reset_event):
+    def __manual_mode_2(self, step, manual_mode_reset_event, caplog):
         self.devices: dict[str, Device] = {}
         config:Configuration = Configuration(config_path, 'f1_')
         config_scheduler = config.get_scheduler()
@@ -203,3 +206,4 @@ class TestSchedulerManualMode2:
         scheduler.active_schedule_thread.join()
         scheduler = None
         assert self.step == -1
+        check_no_error(caplog, False)

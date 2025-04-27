@@ -5,8 +5,8 @@ import pytest
 
 config_path = './tests/config'
 
-def check_no_error(caplog:pytest.LogCaptureFixture):
-    assert len(caplog.records) > 0
+def check_no_error(caplog:pytest.LogCaptureFixture, check_non_empty_logs:bool):
+    assert check_non_empty_logs==False or len(caplog.records) > 0
     for record in caplog.records:
         assert record.levelname != "ERROR"
 
