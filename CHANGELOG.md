@@ -1,3 +1,13 @@
+## v1.3.0 (2025-04-28) :
+- enhancements in tests (87% coverage):
+  - added global tests
+  - added pytest coverage
+  - added scheduler tests (for schedule inheritance)
+- improved error detection in commands
+- bug fix : server can now stop correctly on keyboard interrupt event
+- bug fix in scheduler for inheritance handling
+- few other bugs fix
+ 
 ## v1.2.0 (2025-01-28) :
 - history.txt renamed to CHANGELOG.md
 - Added schedule inheritance management : a schedule may now inherits from another schedule
