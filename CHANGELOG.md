@@ -1,3 +1,6 @@
+## v1.3.1 (2025-12-22) :
+- important bug fix : setting a newly created schedule as active schedule was leading to a scheduler crash
+
 ## v1.3.0 (2025-04-28) :
 - enhancements in tests (87% coverage):
   - added global tests

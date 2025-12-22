@@ -50,9 +50,14 @@ class Scheduler:
         alias = schedule['alias']
         schedule_idx = self.__get_idx_in_schedules(alias)
         if schedule_idx>-1:
+            # It is an existing schedule
             self.config_scheduler['schedules'][schedule_idx] = copy.deepcopy(schedule)
-            if alias == self.config_scheduler['active_schedule']:
-                self.on_active_schedule_changed(alias)
+        else:
+            # It is a new schedule
+            self.config_scheduler['schedules'].append( copy.deepcopy(schedule) )
+        
+        if alias == self.config_scheduler['active_schedule']:
+            self.on_active_schedule_changed(alias)
 
     def set_manual_mode_reset_event(self, manual_mode_reset_event):
         self.manual_mode_reset_event = manual_mode_reset_event

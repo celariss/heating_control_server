@@ -52,6 +52,9 @@ pip install paho-mqtt
 pip install pyyaml
 ```
 
+> **Note :**
+> To execute built-in tests, install pytest module
+
 #### 2- Server configuration file
 The configuration file to update is located here : `./heating_ctrl_default_configuration.yaml`
 

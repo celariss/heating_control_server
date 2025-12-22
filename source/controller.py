@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '1.3.0'
+VERSION = '1.3.1'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6
@@ -383,7 +383,6 @@ class Controller(
             # something changed in scheduler data
             self.scheduler.set_schedule(schedule)
             self.remote_control.on_scheduler(self.configuration.get_scheduler())
-            
         else:
             self.remote_control.on_server_response(remote_name, context, 'failure', err.to_dict())
             self.logger.error("Could not set invalid schedule")
