@@ -53,7 +53,7 @@ pip install pyyaml
 ```
 
 > **Note :**
-> To execute built-in tests, install pytest module
+> To execute built-in tests, install pytest and pytest-cov modules
 
 #### 2- Server configuration file
 The configuration file to update is located here : `./heating_ctrl_default_configuration.yaml`

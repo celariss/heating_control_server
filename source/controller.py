@@ -1,6 +1,6 @@
 __author__      = "Jérôme Cuq"
 
-VERSION = '1.3.1'
+VERSION = '1.3.2'
 
 ## Standalone boilerplate before relative imports 
 # For relative imports to work in Python 3.6

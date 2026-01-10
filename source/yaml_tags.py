@@ -10,7 +10,7 @@ class YamlTagsResolver :
     """
     
 
-    envvar_pattern = re.compile('.*?\${(\w+)}.*?')
+    envvar_pattern = re.compile(r'.*?\${(\w+)}.*?')
     """pattern for global vars: look for ${word}"""
     
     secretsdata = None        

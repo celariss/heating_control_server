@@ -123,14 +123,16 @@ class Scheduler:
             device.enterManualMode()
 
     # Called by the controller when new devices are connected
-    # This method must change the setpoint of device present in current schedule
+    # This method must notify the setpoint of only new devices present in current schedule
     def on_devices_connect(self, new_visible_devices: list[str]):
         with self.active_schedule_thread.lock:
-            new_setpoints: dict[str,float] = {}
+            new_setpoints: dict[str,tuple[float, datetime.datetime]] = {}
             for device_name in new_visible_devices:
                 if device_name in self.current_setpoints:
-                    new_setpoints[device_name] = self.current_setpoints[device_name][0]
-            self.callbacks.apply_devices_setpoints(new_setpoints)
+                    new_setpoints[device_name] = self.current_setpoints[device_name]
+            # We must comply to the callbacks.apply_devices_setpoints prototype
+            schedule_setpoints = self.__get_controller_setpoints(new_setpoints, True)
+            self.callbacks.apply_devices_setpoints(schedule_setpoints)
 
     # get the setpoints of devices for given date/time
     # return (status, active_schedule_alias, dict of [device_name, setpoint)
@@ -306,6 +308,26 @@ class Scheduler:
         temp_set_alias = timeslot['temperature_set']
         return Scheduler.__get_setpoint_from_tempset(device_name, temp_sets, temp_set_alias)
 
+    # Converts setpoints from (setpoint, datetime) to (setpoint, isManual) to comply to callbacks.apply_devices_setpoints prototype
+    def __get_controller_setpoints(self, setpoints: dict[str,tuple[float, datetime.datetime]], only_new_devices:bool = False) -> dict[str,tuple[float,bool]]:
+        result_setpoints:dict[str,tuple[float,bool]] = {}
+        devices_in_manual_mode:dict[str, Device] = self.__get_devices_in_manual_mode()
+        # We must comply to the callbacks.apply_devices_setpoints prototype :
+        #   1) We add devices that have a setpoint in given "setpoints"
+        for devname in setpoints:
+            if not devname in devices_in_manual_mode:
+                item = setpoints[devname]
+                result_setpoints[devname] = (item[0], False)
+        if not only_new_devices:
+            #   2) We add devices that are in manual mode
+            for devname in devices_in_manual_mode:
+                result_setpoints[devname] = (None, True)
+            #   3) We add devices that are not in given "setpoints" with a None setpoint
+            for devname in self.devices:
+                if not devname in result_setpoints:
+                    result_setpoints[devname] = (None, False)
+        return result_setpoints
+
     # Thread that triggers the change of devices setpoint
     def __follow_active_schedule_thread(self):
         self.logger.info('Scheduler thread started')
@@ -374,21 +396,9 @@ class Scheduler:
                     if len(diffs)>0 or bDiff:
                         self.current_setpoints = new_setpoints
                         self.logger.debug("New setpoints to apply for schedule '"+str(result[1])+"': "+str(self.current_setpoints))
-                        
-                        all_setpoints = {}
-                        # We must comply to the callbacks.apply_devices_setpoints prototype :
-                        #   1) We add devices that have setpoints in current schedule
-                        for devname in self.current_setpoints:
-                            if not devname in devices_in_manual_mode:
-                                item = self.current_setpoints[devname]
-                                all_setpoints[devname] = (item[0], False)
-                        #   2) We add devices that are in manual mode
-                        for devname in devices_in_manual_mode:
-                            all_setpoints[devname] = (None, True)
-                        #   3) We add devices that are not in schedule with a None setpoint
-                        for devname in self.devices:
-                            if not devname in all_setpoints:
-                                all_setpoints[devname] = (None, False)
+                        # We must comply to the callbacks.apply_devices_setpoints prototype
+                        all_setpoints = self.__get_controller_setpoints(self.current_setpoints)
+                
                 # At last, we can call the callback !
                 if all_setpoints:
                     self.callbacks.apply_devices_setpoints(all_setpoints)

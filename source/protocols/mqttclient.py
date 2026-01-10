@@ -11,6 +11,7 @@ __author__      = "Jérôme Cuq"
 import paho.mqtt.client as mqtt
 from paho.mqtt.properties import Properties
 from paho.mqtt.packettypes import PacketTypes
+from paho.mqtt.enums import CallbackAPIVersion
 
 from thread_base import ThreadBase
 
@@ -42,6 +43,7 @@ class MQTTClient:
                 protocol=self.protocol,
                 clean_session=clean_session,
                 userdata=self.userdata,
+                callback_api_version=CallbackAPIVersion.VERSION2,
                 reconnect_on_failure=True)
         self.connect_thread: ThreadBase = ThreadBase()
 
@@ -49,18 +51,19 @@ class MQTTClient:
         self.disconnect()
 
     # Callbacks must have following prototype :  
-    # (MQTT v3) on_connect(paho_client, userdata, message, returncode)
-    # (MQTT v5) TBD
-    # on_disconnect(paho_client, userdata, returncode)
-    # on_subscribe(self, paho_client, userdata, mid, granted_qos)
-    # on_message(paho_client, userdata, message, tmp)
-    # on_publish(paho_client, userdata, returncode)
-    def set_callbacks(self, on_connect=None, on_disconnect=None, on_subscribe=None, on_message=None, on_publish=None):
+    # on_connect(paho_client, userdata, connect_flags, reasoncode, properties)
+    # on_disconnect(paho_client, userdata, disconnect_flags, reason_code, properties)
+    # on_subscribe(self, paho_client, userdata, mid, reason_code_list, properties)
+    # on_message(paho_client, userdata, message)
+    # on_publish(paho_client, userdata, mid, reason_code, properties)
+    # on_connect_fail(client, userdata)
+    def set_callbacks(self, on_connect=None, on_disconnect=None, on_subscribe=None, on_message=None, on_publish=None, on_connect_fail=None):
         self.paho_client.on_connect = on_connect
         self.paho_client.on_disconnect = on_disconnect
         self.paho_client.on_subscribe = on_subscribe
         self.paho_client.on_message = on_message
         self.paho_client.on_publish = on_publish
+        self.paho_client.on_connect_fail = on_connect_fail
 
     def connect(self):
         self.connect_thread.start(self.__connect_thread)

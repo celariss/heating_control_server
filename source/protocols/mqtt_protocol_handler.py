@@ -3,6 +3,7 @@ __author__      = "Jérôme Cuq"
 import logging
 import random
 
+from paho.mqtt.reasoncodes import ReasonCode
 from .protocol_handler_base import *
 from .mqttclient import MQTTClient
 
@@ -101,7 +102,7 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
                 return item[0]
         return None
 
-    def __on_message(self, client:MQTTClient, client_name:str, message, tmp=None):
+    def __on_message(self, client:MQTTClient, client_name:str, message):
         try:
             message.payload = message.payload.decode("utf-8")
         except UnicodeDecodeError:
@@ -116,9 +117,9 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
         
         self.callbacks.on_protocol_message(MQTTProtocolHandler.get_config_type(), client_name, message)
 
-    def __on_connect(self, client:MQTTClient, client_name:str, message, returncode):
-        if returncode:
-            self.logger.warning("["+client_name+"]: Not connected ! Return Code :" + str(returncode))
+    def __on_connect(self, client:MQTTClient, client_name:str, connect_flags, reasoncode:ReasonCode, properties):
+        if reasoncode.getName() != 'Success':
+            self.logger.warning("["+client_name+"]: Not connected ! Return Code :" + str(reasoncode.getName()))
             self.callbacks.on_protocol_disconnect(MQTTProtocolHandler.get_config_type(), client_name)
             self.is_connected = False
         else:
@@ -134,8 +135,8 @@ class MQTTProtocolHandler(ProtocolHandlerBase):
                     self.__subscribe(client, client_name, topic, 1)
                     self.ha_status_subscriptions.append((client_name,topic))
 
-    def __on_disconnect(self, client:MQTTClient, client_name:str, returncode):
-        self.logger.info("["+client_name+"]: Disconnected with code: "+str(returncode))
+    def __on_disconnect(self, client:MQTTClient, client_name:str, disconnect_flags, reason_code:ReasonCode, properties):
+        self.logger.info("["+client_name+"]: Disconnected with code: "+str(reason_code.getName()))
         self.is_connected = False
         self.ha_status_subscriptions = []
         self.callbacks.on_protocol_disconnect(MQTTProtocolHandler.get_config_type(), client_name)

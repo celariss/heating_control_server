@@ -1,6 +1,8 @@
 import datetime
 import json
 import paho.mqtt.client as mqtt
+from paho.mqtt.reasoncodes import ReasonCode
+from paho.mqtt.packettypes import PacketTypes
 
 class save_class:
     pass
@@ -78,11 +80,13 @@ class FakeMQTTClient:
 
     def connect(self):
         self.bconnected = True
-        self.on_connect(self, self.userdata, "", None)
+        reasoncode:ReasonCode = ReasonCode(PacketTypes.CONNACK)
+        self.on_connect(self, self.userdata, None, reasoncode, None)
 
     def disconnect(self):
         self.bconnected = False
-        self.on_disconnect(self, self.userdata, None)
+        reasoncode:ReasonCode = ReasonCode(PacketTypes.DISCONNECT)
+        self.on_disconnect(self, self.userdata, None, reasoncode, None)
 
     def is_connected(self):
         return self.bconnected

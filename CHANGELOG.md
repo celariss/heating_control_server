@@ -1,3 +1,8 @@
+## v1.3.2 (2026-01-10) :
+- switched to V2 callback api in mqttclient
+- minor bug fix in scheduler
+- updated tests
+
 ## v1.3.1 (2025-12-22) :
 - important bug fix : setting a newly created schedule as active schedule was leading to a scheduler crash
 
