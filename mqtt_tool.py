@@ -8,6 +8,7 @@ import json
 import random
 
 from source.protocols import mqttclient
+from paho.mqtt.reasoncodes import ReasonCode
 
 removeall:bool = False
 collect_file:str = None
@@ -56,10 +57,10 @@ def on_message(client, mqtt_client: mqttclient.MQTTClient, message, tmp=None):
             json.dump(data_tree, config_file, indent = 4, sort_keys=True, ensure_ascii=False)
 
 
-def on_connect(client, mqtt_client: mqttclient.MQTTClient, message, returncode):
+def on_connect(client:mqttclient.MQTTClient, client_name:str, connect_flags, reasoncode:ReasonCode, properties):
     global publish_data
-    if returncode:
-        print("Not connected ! Return Code :" + str(returncode))
+    if reasoncode.getName() != 'Success':
+        print("Not connected ! Return Code :" + str(reasoncode.getName()))
     else:
         print("Connected !")
         if subscribe or removeall or collect_file:
@@ -89,17 +90,14 @@ formatter = logging.Formatter('%(asctime)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-mqtt_transport = 'websockets' # or 'tcp'
-mqtt_clientid = "pyclient_" + str(random.randint(10000,99999))
-topic = '#'
-EXIT = False
-
 parser = argparse.ArgumentParser()
 parser.add_argument("broker", help='MQTT broker address')
 parser.add_argument("port", type=int, help='Broker IP port')
 parser.add_argument("user", help='Broker user name')
 parser.add_argument("pwd", help='Broker password')
 parser.add_argument("topic", help='Topic to publish/subscribe to')
+parser.add_argument("transport", help='Transport protocol to use : "ws" (=websockets) or "tcp". defaults to "ws"', nargs='?', default='ws')
+parser.add_argument("version", help='MQTT version to use : "3" or "5". defaults to "3"', nargs='?', default='3')
 parser.add_argument("-s", "--subscribe", action='store_true', help="Subscribe")
 parser.add_argument("-r", "--removeall", action='store_true', help="Remove all published data on topic (data with retain flag)")
 parser.add_argument("-p", "--publish", metavar='data', help="Publish data")
@@ -109,6 +107,12 @@ parser.add_argument("--retain", action='store_true', help="Set retain flag (on p
 parser.add_argument("--only_topics", action='store_true', help="Don't store values (when collecting)")
 args = parser.parse_args()
 
+mqtt_clientid = "pyclient_" + str(random.randint(10000,99999))
+topic = '#'
+EXIT = False
+
+mqtt_transport = 'tcp' if args.transport=='tcp' else 'websockets'
+mqtt_version = '5' if args.version=='5' else '3'
 mqtt_broker = args.broker
 mqtt_port = args.port
 mqtt_user = args.user
@@ -127,7 +131,7 @@ if not (subscribe or publish_data or removeall or collect_file):
     parser.print_help()
     parser.exit()
 
-mqtt_client = mqttclient.MQTTClient(mqtt_clientid, mqtt_broker, mqtt_port, mqtt_user, mqtt_pwd, mqtt_transport, ssl=ssl)
+mqtt_client = mqttclient.MQTTClient(mqtt_clientid, mqtt_broker, mqtt_port, mqtt_user, mqtt_pwd, mqtt_transport, ssl=ssl, mqtt_version=mqtt_version)
 mqtt_client.set_callbacks(on_connect=on_connect, on_publish=on_publish, on_message=on_message)
 mqtt_client.connect()
 

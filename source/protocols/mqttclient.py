@@ -17,11 +17,10 @@ from thread_base import ThreadBase
 
 class MQTTClient:
     # If userdata is not provided (None), it will be set to current instance of MQTTClient on any callback calling
-    def __init__(self, clientid, broker, port, user, pwd, transport = "websockets", userdata = None, clean_session=True, ssl = True):
+    def __init__(self, clientid, broker, port, user, pwd, transport = "websockets", userdata = None, clean_session=True, ssl = True, mqtt_version = '3'):
         self.clientid = clientid
         self.user = user
         self.pwd = pwd
-        self.version = '3'
         self.transport = transport
         self.broker = broker
         self.port = port
@@ -32,10 +31,13 @@ class MQTTClient:
             self.userdata = userdata
         else:
             self.userdata = self
-        if self.version == '5':
+        if mqtt_version == '5':
             self.protocol = mqtt.MQTTv5
-        if self.version == '3':
+            self.version = '5'
+            clean_session = None
+        else:
             self.protocol = mqtt.MQTTv311
+            self.version = '3'
         if self.protocol:
             self.paho_client = mqtt.Client(
                 client_id=self.clientid,
