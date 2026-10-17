@@ -70,14 +70,14 @@ def on_connect(client:mqttclient.MQTTClient, client_name:str, connect_flags, rea
             if publish_data == "''":
                 publish_data = ''
             print('Publishing ...')
-            print('  - topic: '+topic)
-            print('  - data : '+ publish_data)
-            print('  - retain : '+ str(retain))
+            print(f"  - topic: '{topic}'")
+            print(f"  - data : '{publish_data}'")
+            print(f"  - retain : {retain}")
             mqtt_client.publish(publish_data, topic, retain=retain, qos=1)
         if collect_file:
             print('Collecting data to file until script is stopped...')
 
-def on_publish(client, mqtt_client: mqttclient.MQTTClient, returncode):
+def on_publish(client, mqtt_client: mqttclient.MQTTClient, mid, reason_code, properties):
     global EXIT
     if not subscribe:
         EXIT = True

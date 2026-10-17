@@ -10,7 +10,6 @@ from helpers import *
 def install_server_to_ha(params:dict):
     config_folder = params['HAConfigFolder']
     ha_config_file = os.path.join(config_folder,'configuration.yaml')
-    ha_automations_file = os.path.join(config_folder,'automations.yaml')
     ha_serverconfig_file = os.path.join(config_folder,'heating_ctrl_configuration.yaml')
     ha_serverdefaultconfig_file = os.path.join(config_folder,'heating_ctrl_default_configuration.yaml')
     ha_serverlogfile = os.path.join(config_folder,'heating_ctrl_srv.log')
@@ -26,13 +25,7 @@ def install_server_to_ha(params:dict):
     if (not os.path.exists(config_folder)) or \
        (not os.path.exists(ha_config_file)):
        log_error("Folder <"+config_folder+"> is not the shared config folder of Home Assistant")
-    # Verify that target files are readable and their content is good
-    yaml_check_file(ha_config_file)
-    yaml_check_file(ha_automations_file)
-    # Verify that target files are writable
-    check_path_is_writable(ha_config_file)
-    check_path_is_writable(ha_automations_file)
-
+    
     ###################################################################
     # SERVER CONFIGURATION FILE
     ###################################################################
@@ -75,14 +68,6 @@ def install_server_to_ha(params:dict):
             ('protocols/mqtt/ssl', params['MqttSsl'])
         ])
     remove_file(ha_serverlogfile, None)
-
-    ###################################################################
-    # HA CONFIGURATION FILE
-    ###################################################################
-    # Add the content of `./configuration.yaml` in HA `config/configuration.yaml`
-    yaml_patch_file('./configuration.yaml', ha_config_file)
-    # Add the content of `./automations.yaml` in HA `config/automations.yaml`
-    yaml_patch_file('./automations.yaml', ha_automations_file, 'alias')
 
     ###################################################################
     # COPY OF CUSTOM COMPONENT FILES
