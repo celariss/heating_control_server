@@ -1,3 +1,8 @@
+## v1.3.3 (2026-10-25) :
+- HA_integration : Removed need to alter HA configuration.yaml and automations.yaml
+  . updated __init__.py to publish changes in climate entities to mqtt
+  . updated install.py
+
 ## v1.3.2 (2026-01-10) :
 - switched to V2 callback api in mqttclient
 - minor bug fix in scheduler
